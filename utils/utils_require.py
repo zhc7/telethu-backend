@@ -6,48 +6,42 @@ MAX_CHAR_LENGTH = 255
 
 # Here err_code == -2 denotes "Error in request body"
 # And err_code == -1 denotes "Error in request URL parsing"
-def require(body, key, type="string", err_msg=None, err_code=-2):
+def require(body, key, types="string", err_msg=None, err_code=-2):
     if key not in body.keys():
         raise KeyError(err_msg if err_msg is not None
                        else f"Invalid parameters. Expected `{key}`, but not found.", err_code)
 
     val = body[key]
 
-    err_msg = f"Invalid parameters. Expected `{key}` to be `{type}` type." \
+    err_msg = f"Invalid parameters. Expected `{key}` to be `{types}` type." \
         if err_msg is None else err_msg
 
-    if type == "int":
+    if types == "int":
         try:
             val = int(val)
             return val
-        except:
+        except ValueError:
             raise KeyError(err_msg, err_code)
 
-    elif type == "float":
+    elif types == "float":
         try:
             val = float(val)
             return val
-        except:
+        except ValueError:
             raise KeyError(err_msg, err_code)
 
-    elif type == "string":
-        try:
-            if not isinstance(val, str):
-                raise KeyError(err_msg, err_code)
+    elif types == "string":
+        if not isinstance(val, str):
             val = str(val)
-            return val
-        except:
-            raise KeyError(err_msg, err_code)
+        return val
 
-    elif type == "list":
-        try:
-            assert isinstance(val, list)
-            return val
-        except:
+    elif types == "list":
+        if not isinstance(val, list):
             raise KeyError(err_msg, err_code)
+        return val
 
     else:
-        raise NotImplementedError(f"Type `{type}` not implemented.", err_code)
+        raise NotImplementedError(f"Type `{types}` not implemented.", err_code)
 
     # 检查username，password，phone格式的专用函数
 
