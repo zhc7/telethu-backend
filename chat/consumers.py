@@ -5,7 +5,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
-    def __init__(self, *args, **kwargs):#I add this function to solve the error from pycharm.
+    def __init__(self, *args, **kwargs):  # I add this function to solve the error from pycharm.
         super().__init__(args, kwargs)
         self.room_group_name = None
         self.room_name = None
@@ -24,18 +24,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     # Receive message from WebSocket
-    async def receive(self, text_data):
+    async def receive(self, text_data=None, _=None):
         text_data_json = json.loads(text_data)
-        message = text_data_json["message"]
 
         # Send message to room group
         await self.channel_layer.group_send(
-            self.room_group_name, {"type": "chat.message", "message": message}
+            self.room_group_name, {"type": "chat.message", **text_data_json}
         )
 
     # Receive message from room group
     async def chat_message(self, event):
-        message = event["message"]
-
         # Send message to WebSocket
-        await self.send(text_data=json.dumps({"message": message}))
+        await self.send(text_data=json.dumps(event))
