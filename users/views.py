@@ -3,13 +3,11 @@ import json
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from users.models import User
+from users.models import User, Friendship
 from utils.session import SessionData
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token, check_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from utils.utils_require import check_require, CheckRequire, require
-
-
 
 
 # Create your views here.
@@ -139,34 +137,49 @@ def register(req: HttpRequest):
     user.save()
     return request_success()
 
+
 # 用户好友管理
 def check_friend_request(req: HttpRequest):
     # 检查请求方法
     if req.method != 'POST':
         return JsonResponse({"code": 2, "info": "Bad method"}, status=400)
-
-    # 检查请求头
-    if "HTTP_AUTHORIZATION" not in req.META:
-        return JsonResponse({"code": 2, "info": "Missing authorization header"}, status=401)
-
-    # 检查请求体
+    # 检查请求头与用户是否存在
+    token = req.META["HTTP_AUTHORIZATION"]
+    payload = check_jwt_token(token)
+    if payload is not None:
+        # 从 payload 当中获得 username 字段
+        username = payload["username"]
+        users = User.objects.filter(username=username)
+        if len(users) == 0:
+            # 没有找到相应的 user
+            return JsonResponse({"code": 2, "info": "User not found"}, status=401)
+    else:
+        return JsonResponse({"code": 2, "info": "Missing JWT payload or improper JWT format"}, status=401)
+    # 检查请求体与好友是否存在
     try:
         body = json.loads(req.body)
         friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({"code": 2, "info": "Missing or error type of 'friendId'"}, status=400)
-
-    # 检查用户是否存在
-    token = req.META["HTTP_AUTHORIZATION"]
-    if not User.objects.filter(token=token).exists():
-        return JsonResponse({"code": 2, "info": "User not exists"}, status=401)
-
-    # 检查好友是否存在
     if not User.objects.filter(id=friend_id).exists():
         return JsonResponse({"code": 2, "info": "Friend not exists"}, status=401)
 
     # 如果没有错误，返回 None
     return None
+
+# 用于获得用户和好友的函数
+def get_user_and_friend(req:HttpRequest):
+    # 获得users
+    token = req.META["HTTP_AUTHORIZATION"]
+    payload = check_jwt_token(token)
+    username = payload["username"]
+    user = User.objects.get(username=username)
+    # 获得friend
+    body = json.loads(req.body)
+    friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
+    friend = User.objects.get(id=friend_id)
+    return user, friend
+
 
 
 @CheckRequire
@@ -177,11 +190,7 @@ def apply_friend(req: HttpRequest):
     if error is not None:
         return error
     # 检查
-    token = req.META["HTTP_AUTHORIZATION"]
-    body = json.loads(req.body)
-    friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
-    user = User.objects.get(token=token)
-    friend = User.objects.get(id=friend_id)
+    user, friend = get_user_and_friend(req)
     friendship = None
     # 排除自我添加
     if user.id == friend.id:
@@ -214,16 +223,11 @@ def apply_friend(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def accept_friend(req: HttpRequest):
     # 基本检查
-    friend_id = 0
     error = check_friend_request(req)
     if error is not None:
         return error
     # 检查
-    token = req.META["HTTP_AUTHORIZATION"]
-    body = json.loads(req.body)
-    friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
-    user = User.objects.get(token=token)
-    friend = User.objects.get(id=friend_id)
+    user, friend = get_user_and_friend(req)
     friendship = None
     # 排除自我添加
     if user.id == friend.id:
@@ -253,16 +257,11 @@ def accept_friend(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def reject_friend(req: HttpRequest):
     # 基本检查
-    friend_id = 0
     error = check_friend_request(req)
     if error is not None:
         return error
     # 检查
-    token = req.META["HTTP_AUTHORIZATION"]
-    body = json.loads(req.body)
-    friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
-    user = User.objects.get(token=token)
-    friend = User.objects.get(id=friend_id)
+    user, friend = get_user_and_friend(req)
     friendship = None
     # 排除自我添加
     if user.id == friend.id:
@@ -294,16 +293,11 @@ def reject_friend(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def block_friend(req: HttpRequest):
     # 基本检查
-    friend_id = 0
     error = check_friend_request(req)
     if error is not None:
         return error
     # 检查
-    token = req.META["HTTP_AUTHORIZATION"]
-    body = json.loads(req.body)
-    friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
-    user = User.objects.get(token=token)
-    friend = User.objects.get(id=friend_id)
+    user, friend = get_user_and_friend(req)
     friendship = None
     # 排除自我添加
     if user.id == friend.id:
@@ -329,16 +323,11 @@ def block_friend(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def unblock_friend(req: HttpRequest):
     # 基本检查
-    friend_id = 0
     error = check_friend_request(req)
     if error is not None:
         return error
     # 检查
-    token = req.META["HTTP_AUTHORIZATION"]
-    body = json.loads(req.body)
-    friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
-    user = User.objects.get(token=token)
-    friend = User.objects.get(id=friend_id)
+    user, friend = get_user_and_friend(req)
     friendship = None
     # 排除自我添加
     if user.id == friend.id:
@@ -361,16 +350,11 @@ def unblock_friend(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def delete_friend(req: HttpRequest):
     # 基本检查
-    friend_id = 0
     error = check_friend_request(req)
     if error is not None:
         return error
     # 检查
-    token = req.META["HTTP_AUTHORIZATION"]
-    body = json.loads(req.body)
-    friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
-    user = User.objects.get(token=token)
-    friend = User.objects.get(id=friend_id)
+    user, friend = get_user_and_friend(req)
     friendship = None
     # 排除自我添加
     if user.id == friend.id:
