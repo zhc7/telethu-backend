@@ -34,3 +34,18 @@ class User(models.Model):
         self.token = token
         self.save()
         return token
+
+
+
+class Friendship(models.Model): # 好友关系
+    # user1 为发起者 user2 为接受者
+    user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user1_friendships')
+    user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user2_friendships')
+    created_time = models.DateTimeField(auto_now_add=True)
+    state = models.IntegerField(default=0) # 0: 申请中 1: 已同意 2: 已拉黑 3: 已拒绝
+
+    class Meta:
+        unique_together = [['user1', 'user2']]
+
+    def __str__(self):
+        return f'{self.user1} - {self.user2} Friendship'
