@@ -73,21 +73,21 @@ def check_jwt_token(token: str) -> Optional[dict]:
     except:
         return None
 
-    payload_str = b64url_decode(payload_b64)
+    try:
+        payload_str = b64url_decode(payload_b64)
+        # * Check signature
+        signature_str_check = header_b64 + "." + payload_b64
+        signature_check = hmac.new(
+            SALT, signature_str_check.encode("utf-8"), digestmod=hashlib.sha256
+        ).digest()
+        signature_b64_check = b64url_encode(signature_check)
+        if signature_b64_check != signature_b64:
+            return None
 
-    # * Check signature
-    signature_str_check = header_b64 + "." + payload_b64
-    signature_check = hmac.new(
-        SALT, signature_str_check.encode("utf-8"), digestmod=hashlib.sha256
-    ).digest()
-    signature_b64_check = b64url_encode(signature_check)
-
-    if signature_b64_check != signature_b64:
+        # Check expire
+        payload = json.loads(payload_str)
+        if payload["exp"] < time.time():
+            return None
+        return payload["data"]
+    except:
         return None
-
-    # Check expire
-    payload = json.loads(payload_str)
-    if payload["exp"] < time.time():
-        return None
-
-    return payload["data"]

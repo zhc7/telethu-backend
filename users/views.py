@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from users.models import User
 from utils.session import SessionData
-from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
+from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token, check_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from utils.utils_require import check_require, CheckRequire, require
 
@@ -40,11 +40,25 @@ def login(req: HttpRequest):
         return request_failed(2, "Wrong password", status_code=401)
 
     # 生成token
-    token = user.generate_token()
-    # 返回token
-    return request_success({
-        "token": token
-    })
+    token = generate_jwt_token(username)
+    # 这个生成的 Token 保证了安全性：其 payload 当中只有 userName 字段，并不含有密码。因此黑客即使截获了 JWT token 之后也无法
+    # 获取登录所需的全部信息。在需要判断用户是否存在的场合，具体实现机制如下：从 JWT Token 的字段当中获得 userName 字段，并利用该
+    # 字段去 User 数据库当中获得 “username” = userName 的个体，判断是否能够获得相应的用户。
+
+    # TODO：
+    session = SessionData(req)
+    if session.username is not None:
+        return request_failed(
+            2,
+            f"Login failed because user {session.username} has login",
+            status_code=401,
+        )
+    session.username = username
+    # 首先判断 session.username 是否为空，如果不为空，则拒 login 请求
+
+    # 返回token, 以及通过 is_login 判断这是登录请求
+    response_data = {"token": token}
+    return request_success(response_data)
 
 
 @CheckRequire
@@ -60,12 +74,25 @@ def logout(req: HttpRequest):
 
     # 检查用户是否存在
     token = req.META["HTTP_AUTHORIZATION"]
-    if not User.objects.filter(token=token).exists():
-        return request_failed(2, "User not exists", status_code=401)
+    payload = check_jwt_token(token)
+    if payload is not None:
+        # 从 payload 当中获得 username 字段
+        username = payload["username"]
+        users = User.objects.filter(username=username)
+        if len(users) == 0:
+            # 没有找到相应的 user
+            return request_failed(2, "User not found", status_code=401)
+    else:
+        return request_failed(
+            2, "Missing JWT payload or improper JWT format", status_code=401
+        )
+    # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
 
-    # 清除token
-    user = User.objects.get(token=token)
-    user.token = None
+    # 在 logout 的时候需要将 session 的 user 字段置空
+    session = SessionData(req)
+    session.username = None
+
+    user = User.objects.get(username=username)
     user.save()
     return request_success()
 
