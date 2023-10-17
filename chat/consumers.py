@@ -4,33 +4,40 @@ import pika
 import sys
 from channels.generic.websocket import AsyncWebsocketConsumer
 from users.models import User, Friendship
-
+import asyncio
 
 class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
+        print("init")
         super().__init__(*args, **kwargs)
+        print("created")
         self.user_id = None
+        self.rabbitmq_connection = None
 
     async def connect(self):
+        print("connecting")
         # 建立 WebSocket 连接
         await self.accept()
+        print("connected")
         # 获取当前用户
         self.user_id = self.scope['user_id']
+        print("start consuming")
         # 异步启动消息消费
         await self.start_consuming()
+        print("done")
 
     async def start_consuming(self):
         # 建立rabbitmq
-        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-        channel = connection.channel()
+        self.rabbitmq_connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+        channel = self.rabbitmq_connection.channel()
         channel.exchange_declare(exchange=str(self.user_id), exchange_type='fanout')
         # 为所有好友建立联通的queue
         friends = Friendship.objects.filter(user1=self.user_id)
         friends = friends | Friendship.objects.filter(user2=self.user_id)
 
         def callback(ch, method, properties, body):
-            massage = body.decode()
-            self.chat_message(massage)
+            message = body.decode()
+            self.chat_message(message)
 
         for friend in friends:
             # 建立queue
@@ -47,22 +54,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # 开始消费
             channel.basic_consume(queue=queue_name_receive, on_message_callback=callback, auto_ack=True)
 
-        await channel.start_consuming()
+        # 使用异步的方式启动消费
+        await self.run_consuming()
+
+    async def run_consuming(self):
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, self.rabbitmq_connection.process_data_events)
 
     async def disconnect(self, close_code):
         # 断开 WebSocket 连接
-        pass
+        self.rabbitmq_connection.close()
 
     async def receive(self, text_data):
         # 接收来自前端的消息
         text_data_json = json.loads(text_data)
         message = text_data_json['message']
         # 发送消息给rabbitmq
-        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-        channel = connection.channel()
+        channel = self.rabbitmq_connection.channel()
         channel.exchange_declare(exchange=str(self.user_id), exchange_type='fanout')
         channel.basic_publish(exchange=str(self.user_id), routing_key='', body=message)
-        connection.close()
 
     async def chat_message(self, message):
         # 处理来自rabbitmq队列的消息发送消息给前端
