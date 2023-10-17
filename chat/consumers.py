@@ -47,8 +47,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         friends_id = await self.query_friends()
 
         async def callback(body):
-            message = body.body.decode()
-            await self.chat_message(message)
+            massage_bag = json.loads(body.body.decode())
+            message = massage_bag['message']
+            massage_from = massage_bag['user_id']
+            aim_id  = massage_bag['aim_id']
+            if aim_id == self.user_id:
+                await self.chat_message(message, massage_from)
+
 
         for friend_id in friends_id:
             # 建立queue
@@ -58,7 +63,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await queue_receive.bind(self.public_exchange)
             # 消费消息
             await queue_receive.consume(callback)
-        # 自己订阅自己的消息
+
 
 
     async def disconnect(self, close_code):
@@ -71,16 +76,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 接收来自前端的消息
         text_data_json = json.loads(text_data)
         message = text_data_json['message']
+        aim_id = text_data_json['aim_id']
+        user_id = self.user_id
+        massage_bag = {
+            'message': message,
+            'user_id': user_id,
+            'aim_id': aim_id,
+        }
+        message_json = json.dumps(massage_bag)
         # 发送消息给rabbitmq
         await self.public_exchange.publish(
             aio_pika.Message(
-                body=message.encode(),  # 将消息转换为 bytes
+                body=message_json.encode(),  # 将消息转换为 bytes
             ),
             routing_key='',  # 不指定 routing_key
         )
 
-    async def chat_message(self, message):
+    async def chat_message(self, message,massage_from):
         # 处理来自rabbitmq队列的消息发送消息给前端
         await self.send(text_data=json.dumps({
-            'message': message
+            'message': message,
+            'massage_from':massage_from
         }))
