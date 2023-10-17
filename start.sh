@@ -1,6 +1,7 @@
 #!/bin/sh
-echo "starting server"
-
+echo "starting redis"
+service redis-server start
+echo "preparing server"
 python3 manage.py makemigrations
 echo "migrating database"
 python3 manage.py migrate
