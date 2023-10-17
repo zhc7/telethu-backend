@@ -15,7 +15,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         super().__init__(*args, **kwargs)
         self.user_id = None
         self.rabbitmq_connection = None
-        self.exchange_send = None
+        self.public_exchange = None
 
     async def connect(self):
         # 建立 WebSocket 连接
@@ -41,9 +41,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.rabbitmq_connection = await aio_pika.connect_robust("amqp://localhost")
         channel = await self.rabbitmq_connection.channel()
         # 使用 Exchange 对象来声明交换机
-        exchange_name = str(self.user_id)
-        exchange_send = await channel.declare_exchange(exchange_name, type='fanout')
-        self.exchange_send = exchange_send
+        exchange_name = "public_exchange"
+        self.public_exchange = await channel.declare_exchange(exchange_name, type='fanout')
         # 获取好友列表
         friends_id = await self.query_friends()
 
@@ -53,23 +52,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         for friend_id in friends_id:
             # 建立queue
-            queue_name_receive = str(friend_id) + "_" + str(self.user_id)
-            queue_name_send = str(self.user_id) + "_" + str(friend_id)
-            # 好友订阅用户的消息
-            queue_send = await channel.declare_queue(queue_name_send)
-            await queue_send.bind(exchange_send)
+            queue_name_receive = str(self.user_id)
             # 用户订阅好友的消息
-            exchange_name_receive = str(friend_id)
-            exchange_receive = await channel.declare_exchange(exchange_name_receive, type='fanout')
             queue_receive = await channel.declare_queue(queue_name_receive)
-            await queue_receive.bind(exchange_receive)
+            await queue_receive.bind(self.public_exchange)
             # 消费消息
             await queue_receive.consume(callback)
         # 自己订阅自己的消息
-        queue_name_send = str(self.user_id) + "_" + str(self.user_id)
-        queue_send = await channel.declare_queue(queue_name_send)
-        await queue_send.bind(exchange_send)
-        await queue_send.consume(callback)
+
 
     async def disconnect(self, close_code):
         try:
@@ -82,7 +72,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         text_data_json = json.loads(text_data)
         message = text_data_json['message']
         # 发送消息给rabbitmq
-        await self.exchange_send.publish(
+        await self.public_exchange.publish(
             aio_pika.Message(
                 body=message.encode(),  # 将消息转换为 bytes
             ),
