@@ -8,12 +8,14 @@ from users.models import Friendship
 
 
 class MessageReceived(BaseModel):
+    time: float
     m_type: str
     content: str
     receiver: str
 
 
 class MessageSent(BaseModel):
+    time: float
     m_type: str
     content: str
     sender: str
@@ -80,6 +82,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 接收来自前端的消息
         message_received = MessageReceived.model_validate_json(text_data)
         message_sent = MessageSent(
+            time=message_received.time,
             m_type=message_received.m_type,
             content=message_received.content,
             sender=self.user_id,
