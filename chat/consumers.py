@@ -60,17 +60,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if message_sent.receiver == self.user_id:
                 await self.chat_message(message_sent)
 
-
-        for friend_id in friends_id:
-            # 建立queue
-            queue_name_receive = str(self.user_id)
-            # 用户订阅好友的消息
-            queue_receive = await channel.declare_queue(queue_name_receive)
-            await queue_receive.bind(self.public_exchange)
-            # 消费消息
-            await queue_receive.consume(callback)
-
-
+        # 建立queue
+        queue_name_receive = str(self.user_id)
+        # 用户订阅好友的消息
+        queue_receive = await channel.declare_queue(queue_name_receive)
+        await queue_receive.bind(self.public_exchange)
+        # 消费消息
+        await queue_receive.consume(callback)
 
     async def disconnect(self, close_code):
         try:
@@ -92,7 +88,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             aio_pika.Message(
                 body=message_json.encode(),  # 将消息转换为 bytes
             ),
-            routing_key='',  # 不指定 routing_key
+            routing_key=message_received.receiver,  # 不指定 routing_key
         )
 
     async def chat_message(self, message_sent: MessageSent):
