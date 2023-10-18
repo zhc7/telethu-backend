@@ -1,13 +1,22 @@
 # chat/consumers.py
-import json
-import pika
-import aiormq
 import aio_pika
-import sys
-from channels.generic.websocket import AsyncWebsocketConsumer
-from users.models import User, Friendship
-import asyncio
 from channels.db import database_sync_to_async  # 引入异步数据库操作
+from channels.generic.websocket import AsyncWebsocketConsumer
+from pydantic import BaseModel
+
+from users.models import Friendship
+
+
+class MessageReceived(BaseModel):
+    m_type: str
+    content: str
+    receiver: str
+
+
+class MessageSent(BaseModel):
+    m_type: str
+    content: str
+    sender: str
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -42,17 +51,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         channel = await self.rabbitmq_connection.channel()
         # 使用 Exchange 对象来声明交换机
         exchange_name = "public_exchange"
-        self.public_exchange = await channel.declare_exchange(exchange_name, type='fanout')
+        self.public_exchange = await channel.declare_exchange(exchange_name, type="direct")
         # 获取好友列表
         friends_id = await self.query_friends()
 
         async def callback(body):
-            massage_bag = json.loads(body.body.decode())
-            message = massage_bag['message']
-            massage_from = massage_bag['user_id']
-            aim_id  = massage_bag['aim_id']
-            if aim_id == self.user_id:
-                await self.chat_message(message, massage_from)
+            message_sent = MessageSent.model_validate_json(body.body.decode())
+            if message_sent.receiver == self.user_id:
+                await self.chat_message(message_sent)
 
 
         for friend_id in friends_id:
@@ -72,18 +78,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"An error occurred while closing the RabbitMQ connection: {str(e)}")
 
-    async def receive(self, text_data):
+    async def receive(self, text_data=None, _=None):
         # 接收来自前端的消息
-        text_data_json = json.loads(text_data)
-        message = text_data_json['message']
-        aim_id = text_data_json['aim_id']
-        user_id = self.user_id
-        massage_bag = {
-            'message': message,
-            'user_id': user_id,
-            'aim_id': aim_id,
-        }
-        message_json = json.dumps(massage_bag)
+        message_received = MessageReceived.model_validate_json(text_data)
+        message_sent = MessageSent(
+            m_type=message_received.m_type,
+            content=message_received.content,
+            sender=self.user_id,
+        )
+        message_json = message_sent.model_dump_json()
         # 发送消息给rabbitmq
         await self.public_exchange.publish(
             aio_pika.Message(
@@ -92,9 +95,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             routing_key='',  # 不指定 routing_key
         )
 
-    async def chat_message(self, message,massage_from):
+    async def chat_message(self, message_sent: MessageSent):
         # 处理来自rabbitmq队列的消息发送消息给前端
-        await self.send(text_data=json.dumps({
-            'message': message,
-            'massage_from':massage_from
-        }))
+        await self.send(text_data=message_sent.model_dump_json())
