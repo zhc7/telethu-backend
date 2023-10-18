@@ -1,0 +1,108 @@
+
+2023-10-17 23:22:01.564366+08:00 [erro] <0.130.0> 
+2023-10-17 23:22:01.564366+08:00 [erro] <0.130.0> BOOT FAILED
+2023-10-17 23:22:01.564366+08:00 [erro] <0.130.0> ===========
+2023-10-17 23:22:01.564366+08:00 [erro] <0.130.0> ERROR: could not bind to distribution port 25672, it is in use by another node: rabbit@LAPTOP-4N14CQ7P
+2023-10-17 23:22:01.564366+08:00 [erro] <0.130.0> 
+BOOT FAILED
+===========
+ERROR: could not bind to distribution port 25672, it is in use by another node: rabbit@LAPTOP-4N14CQ7P
+
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>     supervisor: {local,rabbit_prelaunch_sup}
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>     errorContext: start_error
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>     reason: {dist_port_already_used,25672,"rabbit","LAPTOP-4N14CQ7P"}
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>     offender: [{pid,undefined},
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>                {id,prelaunch},
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>                {mfargs,{rabbit_prelaunch,run_prelaunch_first_phase,[]}},
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>                {restart_type,transient},
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>                {significant,false},
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>                {shutdown,5000},
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0>                {child_type,worker}]
+2023-10-17 23:22:02.585548+08:00 [erro] <0.130.0> 
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>   crasher:
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     initial call: application_master:init/4
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     pid: <0.128.0>
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     registered_name: []
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     exception exit: {{shutdown,
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>                          {failed_to_start_child,prelaunch,
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>                              {dist_port_already_used,25672,"rabbit",
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>                                  "LAPTOP-4N14CQ7P"}}},
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>                      {rabbit_prelaunch_app,start,[normal,[]]}}
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>       in function  application_master:init/4 (application_master.erl, line 142)
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     ancestors: [<0.127.0>]
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     message_queue_len: 1
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     messages: [{'EXIT',<0.129.0>,normal}]
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     links: [<0.127.0>,<0.44.0>]
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     dictionary: []
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     trap_exit: true
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     status: running
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     heap_size: 610
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     stack_size: 29
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>     reductions: 195
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0>   neighbours:
+2023-10-17 23:22:02.586021+08:00 [erro] <0.128.0> 
+2023-10-17 23:22:02.594507+08:00 [noti] <0.44.0> Application rabbitmq_prelaunch exited with reason: {{shutdown,{failed_to_start_child,prelaunch,{dist_port_already_used,25672,"rabbit","LAPTOP-4N14CQ7P"}}},{rabbit_prelaunch_app,start,[normal,[]]}}
+{"Kernel pid terminated",application_controller,"{application_start_failure,rabbitmq_prelaunch,{{shutdown,{failed_to_start_child,prelaunch,{dist_port_already_used,25672,\"rabbit\",\"LAPTOP-4N14CQ7P\"}}},{rabbit_prelaunch_app,start,[normal,[]]}}}"}
+Kernel pid terminated (application_controller) ({application_start_failure,rabbitmq_prelaunch,{{shutdown,{failed_to_start_child,prelaunch,{dist_port_already_used,25672,"rabbit","LAPTOP-4N14CQ7P"}}},{rabbit_prelaunch_app,start,[normal,[]]}}})
+
+Crash dump is being written to: erl_crash.dump...
+Only root or rabbitmq should run rabbitmq-server
+
+2023-10-17 23:22:14.185627+08:00 [warn] <0.130.0> Failed to write PID file "/var/lib/rabbitmq/mnesia/rabbit@LAPTOP-4N14CQ7P.pid": permission denied
+2023-10-17 23:22:14.383027+08:00 [erro] <0.228.0> Feature flags: failed to read the `feature_flags` file at `/var/lib/rabbitmq/mnesia/rabbit@LAPTOP-4N14CQ7P-feature_flags`: permission denied
+
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0> 
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0> BOOT FAILED
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0> ===========
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0> Exception during startup:
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0> 
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0> throw:{feature_flags_file_read_error,"/var/lib/rabbitmq/mnesia/rabbit@LAPTOP-4N14CQ7P-feature_flags",eacces}
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0> 
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0>     rabbit_feature_flags:read_enabled_feature_flags_list/0, line 1398
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0>     rabbit_feature_flags:initialize_registry/1, line 779
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0>     rabbit_prelaunch_feature_flags:setup/1, line 25
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0>     rabbit:run_prelaunch_second_phase/0, line 360
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0>     rabbit:start/2, line 847
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0>     application_master:start_it_old/4, line 293
+2023-10-17 23:22:14.391726+08:00 [erro] <0.228.0> 
+BOOT FAILED
+===========
+Exception during startup:
+
+throw:{feature_flags_file_read_error,"/var/lib/rabbitmq/mnesia/rabbit@LAPTOP-4N14CQ7P-feature_flags",eacces}
+
+    rabbit_feature_flags:read_enabled_feature_flags_list/0, line 1398
+    rabbit_feature_flags:initialize_registry/1, line 779
+    rabbit_prelaunch_feature_flags:setup/1, line 25
+    rabbit:run_prelaunch_second_phase/0, line 360
+    rabbit:start/2, line 847
+    application_master:start_it_old/4, line 293
+
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>   crasher:
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     initial call: application_master:init/4
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     pid: <0.227.0>
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     registered_name: []
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     exception exit: {{feature_flags_file_read_error,
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>                          "/var/lib/rabbitmq/mnesia/rabbit@LAPTOP-4N14CQ7P-feature_flags",
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>                          eacces},
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>                      {rabbit,start,[normal,[]]}}
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>       in function  application_master:init/4 (application_master.erl, line 142)
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     ancestors: [<0.226.0>]
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     message_queue_len: 1
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     messages: [{'EXIT',<0.228.0>,normal}]
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     links: [<0.226.0>,<0.44.0>]
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     dictionary: []
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     trap_exit: true
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     status: running
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     heap_size: 987
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     stack_size: 29
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>     reductions: 179
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0>   neighbours:
+2023-10-17 23:22:15.403602+08:00 [erro] <0.227.0> 
+2023-10-17 23:22:15.412242+08:00 [noti] <0.44.0> Application rabbit exited with reason: {{feature_flags_file_read_error,"/var/lib/rabbitmq/mnesia/rabbit@LAPTOP-4N14CQ7P-feature_flags",eacces},{rabbit,start,[normal,[]]}}
+{"Kernel pid terminated",application_controller,"{application_start_failure,rabbit,{{feature_flags_file_read_error,\"/var/lib/rabbitmq/mnesia/rabbit@LAPTOP-4N14CQ7P-feature_flags\",eacces},{rabbit,start,[normal,[]]}}}"}
+Kernel pid terminated (application_controller) ({application_start_failure,rabbit,{{feature_flags_file_read_error,"/var/lib/rabbitmq/mnesia/rabbit@LAPTOP-4N14CQ7P-feature_flags",eacces},{rabbit,start,[normal,[]]}}})
+
+Crash dump is being written to: erl_crash.dump...
+Only root or rabbitmq should run rabbitmq-server
+

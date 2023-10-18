@@ -1,4 +1,10 @@
-FROM python:3.11
+# 使用官方的 RabbitMQ 镜像
+FROM rabbitmq:3-management
+
+# 安装 Python
+RUN apt-get update && apt-get install -y python3.11
+
+# 添加您的应用程序代码、依赖项等
 
 WORKDIR /app
 
@@ -10,12 +16,15 @@ RUN echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://
 RUN apt update
 RUN apt install -y redis
 
-COPY requirements.txt .
+RUN apt install -y systemd
 
-RUN pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+COPY requirements.txt .
+RUN apt-get update && apt-get install -y python3-pip
+RUN pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY . .
 
 EXPOSE 80
 
+# 定义容器启动命令
 CMD ["/bin/sh", "./start.sh"]

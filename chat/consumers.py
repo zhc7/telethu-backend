@@ -17,6 +17,7 @@ class MessageSent(BaseModel):
     m_type: str
     content: str
     sender: str
+    receiver: str
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -52,8 +53,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 使用 Exchange 对象来声明交换机
         exchange_name = "public_exchange"
         self.public_exchange = await channel.declare_exchange(exchange_name, type="direct")
+
         # 获取好友列表
-        friends_id = await self.query_friends()
+        # friends_id = await self.query_friends()
 
         async def callback(body):
             message_sent = MessageSent.model_validate_json(body.body.decode())
@@ -81,6 +83,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             m_type=message_received.m_type,
             content=message_received.content,
             sender=self.user_id,
+            receiver=message_received.receiver,
         )
         message_json = message_sent.model_dump_json()
         # 发送消息给rabbitmq
