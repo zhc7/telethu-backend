@@ -3,8 +3,9 @@ import aio_pika
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pydantic import BaseModel
-
-from users.models import Friendship
+from utils.utils_jwt import check_jwt_token
+from utils.utils_request import request_failed, request_success
+from users.models import Friendship, User
 
 
 class MessageReceived(BaseModel):
@@ -29,11 +30,43 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.rabbitmq_connection = None
         self.public_exchange = None
 
+    @database_sync_to_async
+    def get_user_id_with_jwt_and_session(self, jwt_token, session_username):
+        print("session_username is: ", session_username)
+        # 从 jwt_token 的 payload 当中 获取 username
+        check_result = check_jwt_token(jwt_token)
+        if check_result is None:
+            return request_failed(
+                2, "JWT not found or JWT format error in consumer", status_code=401
+            )
+        else:
+            username = check_result["username"]
+            print("username is: ", username)
+            user = User.objects.filter(username=username)
+            if len(user) == 0:
+                return request_failed(
+                    2, "User doesn't exist in consumer", status_code=401
+                )
+            else:
+                if session_username == username:
+
+                    return user[0].id
+                else:
+                    return request_failed(
+                        2, "session_name doesn't match username in jwt", status_code=401
+                    )
+
     async def connect(self):
         # 建立 WebSocket 连接
         await self.accept()
         # 获取当前用户
-        self.user_id = self.scope['url_route']['kwargs']['user_id']
+        jwt_token = self.scope.get("query_string").decode("utf-8")
+        # 这里似乎还需要获取 session_id，但是如果也要使用 Token ID，那么获取 session_id 需要做些什么呢？
+        session_data = self.scope.get("session", {})
+        session_username = session_data.get("username")
+        self.user_id = self.get_user_id_with_jwt_and_session(
+            jwt_token, session_username
+        )
         # 异步启动消息消费
         await self.start_consuming()
 
@@ -44,7 +77,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         friends = friends | Friendship.objects.filter(user2=self.user_id)
         friends_id = []
         for friend in friends:
-            friend_id = friend.user1.id if friend.user1.id != self.user_id else friend.user2.id
+            friend_id = (
+                friend.user1.id if friend.user1.id != self.user_id else friend.user2.id
+            )
             friends_id.append(friend_id)
         return friends_id
 
@@ -54,7 +89,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         channel = await self.rabbitmq_connection.channel()
         # 使用 Exchange 对象来声明交换机
         exchange_name = "public_exchange"
-        self.public_exchange = await channel.declare_exchange(exchange_name, type="direct")
+        self.public_exchange = await channel.declare_exchange(
+            exchange_name, type="direct"
+        )
 
         # 获取好友列表
         # friends_id = await self.query_friends()
