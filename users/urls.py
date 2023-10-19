@@ -13,4 +13,5 @@ urlpatterns = [
     path('friends/block', views.block_friend),
     path('friends/unblock', views.unblock_friend),
     path('friends/list', views.get_friend_list),
+    path('friends/apply_list', views.get_apply_list),
 ]
