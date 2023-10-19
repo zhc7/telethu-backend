@@ -54,8 +54,8 @@ class SimpleMiddleware:
                 2, "JWT not found or JWT format error", status_code=401
             )
 
-        if check_result["username"] != request.session.get("username"):
-            return request_failed(2, "Wrong user name", status_code=401)
+        if check_result["user_email"] != request.session.get("user_email"):
+            return request_failed(2, "Wrong user user_email", status_code=401)
 
     # 完整的鉴权逻辑，在上面的注释当中有所提及
     def check_token_and_session(self, request):
@@ -69,7 +69,7 @@ class SimpleMiddleware:
             if check_result is None:
                 return request_failed(2, "Invalid or expired JWT", status_code=401)
             else:
-                session.username = check_result["username"]
+                session.username = check_result["user_email"]
         elif not jwt_token and request.session:
             self.check_last_login(request)
         else:

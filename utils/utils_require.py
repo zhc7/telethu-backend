@@ -57,10 +57,8 @@ def check_require(val, typename):
         if len(val) > MAX_CHAR_LENGTH:
             return False
         return True
-    elif typename == "phone":
+    elif typename == "email":
         if len(val) > MAX_CHAR_LENGTH:
-            return False
-        if not val.isdigit():
             return False
         return True
     else:

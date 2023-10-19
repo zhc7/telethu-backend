@@ -20,19 +20,20 @@ def login(req: HttpRequest):
 
     # 检查请求体
     body = json.loads(req.body)
-    username = require(
-        body, "userName", "string", err_msg="Missing or error type of [userName]"
-    )
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
+    user_email= require(
+        body, "user_email", "string", err_msg="Missing or error type of [email]"
+    )
+
 
     # 检查用户名是否存在
-    if not User.objects.filter(username=username).exists():
+    if not User.objects.filter(user_email=user_email).exists():
         return request_failed(2, "Username not exists", status_code=401)
 
     # 检查密码是否正确
-    user = User.objects.get(username=username)
+    user = User.objects.get(user_email=user_email)
 
     # 利用 SHA256 算法对用户输入的密码进行 5 次加密，与正确的密码（同样已经加密 5 次）进行对比
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
@@ -40,20 +41,20 @@ def login(req: HttpRequest):
         return request_failed(2, "Wrong password", status_code=401)
 
     # 生成token
-    token = generate_jwt_token(username)
+    token = generate_jwt_token(user_email)
     # 这个生成的 Token 保证了安全性：其 payload 当中只有 userName 字段，并不含有密码。因此黑客即使截获了 JWT token 之后也无法
     # 获取登录所需的全部信息。在需要判断用户是否存在的场合，具体实现机制如下：从 JWT Token 的字段当中获得 userName 字段，并利用该
-    # 字段去 User 数据库当中获得 “username” = userName 的个体，判断是否能够获得相应的用户。
+    # 字段去 User 数据库当中获得 user_email=email的用户，如果存在，则说明用户存在，否则说明用户不存在。
 
     # TODO：
     session = SessionData(req)
-    if session.username is not None:
+    if session.user_email is not None:
         return request_failed(
             2,
-            f"Login failed because user {session.username} has login",
+            f"Login failed because user {session.user_email} has login",
             status_code=401,
         )
-    session.username = username
+    session.user_email = user_email
     # 首先判断 session.username 是否为空，如果不为空，则拒 login 请求
 
     # 返回token, 以及通过 is_login 判断这是登录请求
@@ -80,8 +81,8 @@ def logout(req: HttpRequest):
     payload = check_jwt_token(token)
     if payload is not None:
         # 从 payload 当中获得 username 字段
-        username = payload["username"]
-        users = User.objects.filter(username=username)
+        user_email = payload["user_email"]
+        users = User.objects.filter(user_email=user_email)
         if len(users) == 0:
             # 没有找到相应的 user
             return request_failed(2, "User not found", status_code=401)
@@ -93,9 +94,9 @@ def logout(req: HttpRequest):
 
     # 在 logout 的时候需要将 session 的 user 字段置空
     session = SessionData(req)
-    session.username = None
+    session.user_email = None
 
-    user = User.objects.get(username=username)
+    user = User.objects.get(user_email=user_email)
     user.save()
     return request_success()
 
@@ -115,17 +116,22 @@ def register(req: HttpRequest):
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
+    user_email = require(
+        body, "user_email", "string", err_msg="Missing or error type of [email]"
+    )
 
     # phone = require(body, "phone", "string", err_msg="Missing or error type of [phone]")
-    # 检查用户名是否已存在
-    if User.objects.filter(username=username).exists():
-        return request_failed(2, "Username already exists", status_code=401)
+    # 检查用户邮箱是否已存在
+    if User.objects.filter(user_email=user_email).exists():
+        return request_failed(2, "User_email already exists", status_code=401)
 
     # 检查用户名格式，密码格式，手机号格式,如果不符合要求，返回422.有需求改变取check_require函数去改动
     if not check_require(username, "username"):
         return request_failed(2, "Invalid username", status_code=422)
     if not check_require(password, "password"):
         return request_failed(2, "Invalid password", status_code=422)
+    if not check_require(user_email, "email"):
+        return request_failed(2, "Invalid email", status_code=422)
 
     # if not check_require (phone, "phone"):
     #    return request_failed(2, "Invalid phone", status_code=422)
@@ -136,7 +142,7 @@ def register(req: HttpRequest):
 
     # 利用 SHA256 算法对新建用户的密码进行 5 次加密
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
-    user = User(username=username, password=hashed_password)
+    user = User(username=username, password=hashed_password, user_email=user_email)
     user.save()
     return request_success()
 
