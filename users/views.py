@@ -380,3 +380,50 @@ def delete_friend(req: HttpRequest):
         return request_success()
     elif friendship.state != 1:
         return request_failed(2, "Not friends", status_code=401)
+
+@CheckRequire
+@csrf_exempt  # 允许跨域,便于测试
+def get_friend_list(req: HttpRequest):
+    # 检查请求方法
+    if req.method != "POST":
+        return BAD_METHOD
+    # 检查请求头
+    if not "HTTP_AUTHORIZATION" in req.META:
+        return request_failed(2, "Missing authorization header", status_code=401)
+
+    # 检查用户是否存在
+    token = req.META["HTTP_AUTHORIZATION"]
+    payload = check_jwt_token(token)
+    if payload is not None:
+        # 从 payload 当中获得 username 字段
+        user_email = payload["user_email"]
+        users = User.objects.filter(user_email=user_email)
+        if len(users) == 0:
+            # 没有找到相应的 user
+            return request_failed(2, "User not found", status_code=401)
+    else:
+        return request_failed(
+            2, "Missing JWT payload or improper JWT format", status_code=401
+        )
+    # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
+    # 找出所有的friend
+    friends = []
+    user = User.objects.get(user_email=user_email)
+    for friendship in user.user1_friendships.all():
+        if friendship.state == 1:
+            friends.append(friendship.user2)
+    for friendship in user.user2_friendships.all():
+        if friendship.state == 1:
+            friends.append(friendship.user1)
+    # 返回friend列表,包括friend的id,username,avatar
+    response_data = {
+        "friends": [
+            {
+                "id": friend.id,
+                "username": friend.username,
+                "avatar": friend.avatar,
+            }
+            for friend in friends
+        ]
+    }
+    return request_success(response_data)
