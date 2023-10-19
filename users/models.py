@@ -7,7 +7,7 @@ class User(models.Model):
     )  # If necessary, change the AutoField to BigAutoField.
     username = models.CharField(max_length=32)
     password = models.CharField(max_length=128)
-    user_email = models.EmailField(unique=True, max_length=128)
+    userEmail = models.EmailField(unique=True, max_length=128)
     avatar = models.CharField(
         max_length=256,
         default="https://images.unsplash.com/photo-1642921131008-b13897b36d17?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8JUU2JUI4JTg1JUU1JThEJThFJUU1JUE0JUE3JUU1JUFEJUE2fGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
@@ -22,7 +22,7 @@ class User(models.Model):
             "id": self.id,
             "username": self.username,
             "created_time": self.created_time,
-            "email": self.user_email,
+            "email": self.userEmail,
             "avatar": self.avatar,
         }
 
