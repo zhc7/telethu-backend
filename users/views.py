@@ -57,7 +57,10 @@ def login(req: HttpRequest):
     # 首先判断 session.username 是否为空，如果不为空，则拒 login 请求
 
     # 返回token, 以及通过 is_login 判断这是登录请求
-    response_data = {"token": token}
+    response_data = {
+        "token": token,
+        "user_id": user.id,
+    }
     return request_success(response_data)
 
 
@@ -167,8 +170,9 @@ def check_friend_request(req: HttpRequest):
     # 如果没有错误，返回 None
     return None
 
+
 # 用于获得用户和好友的函数
-def get_user_and_friend(req:HttpRequest):
+def get_user_and_friend(req: HttpRequest):
     # 获得users
     token = req.META["HTTP_AUTHORIZATION"]
     payload = check_jwt_token(token)
@@ -179,7 +183,6 @@ def get_user_and_friend(req:HttpRequest):
     friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
     friend = User.objects.get(id=friend_id)
     return user, friend
-
 
 
 @CheckRequire
