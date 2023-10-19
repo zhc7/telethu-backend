@@ -13,6 +13,7 @@ class MessageReceived(BaseModel):
     m_type: str
     content: str
     receiver: str
+    type: str = "message.received"
 
 
 class MessageSent(BaseModel):
