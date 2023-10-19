@@ -36,7 +36,7 @@ def b64url_decode(s: str, decode_to_str=True):
         return base64.b64decode(s, altchars=ALT_CHARS)
 
 
-def generate_jwt_token(username: str):
+def generate_jwt_token(user_email: str):
     # * header
     header = {"alg": "HS256", "typ": "JWT"}
     # dump to str. remove `\n` and space after `:`
@@ -49,7 +49,7 @@ def generate_jwt_token(username: str):
         "iat": int(time.time()),
         "exp": int(time.time()) + EXPIRE_IN_SECONDS,
         "data": {
-            "username": username
+            "user_email": user_email
             # And more data for your own usage
         },
     }
