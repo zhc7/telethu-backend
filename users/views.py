@@ -157,8 +157,8 @@ def check_friend_request(req: HttpRequest):
     payload = check_jwt_token(token)
     if payload is not None:
         # 从 payload 当中获得 username 字段
-        username = payload["username"]
-        users = User.objects.filter(username=username)
+        user_email = payload["user_email"]
+        users = User.objects.filter(user_email=user_email)
         if len(users) == 0:
             # 没有找到相应的 user
             return JsonResponse({"code": 2, "info": "User not found"}, status=401)
@@ -182,8 +182,8 @@ def get_user_and_friend(req: HttpRequest):
     # 获得users
     token = req.META["HTTP_AUTHORIZATION"]
     payload = check_jwt_token(token)
-    username = payload["username"]
-    user = User.objects.get(username=username)
+    user_email = payload["user_email"]
+    user = User.objects.get(user_email=user_email)
     # 获得friend
     body = json.loads(req.body)
     friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
