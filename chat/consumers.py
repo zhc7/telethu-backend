@@ -12,7 +12,7 @@ class MessageReceived(BaseModel):
     time: float
     m_type: str
     content: str
-    receiver: str
+    receiver: int
     type: str = "message.received"
 
 
@@ -20,8 +20,8 @@ class MessageSent(BaseModel):
     time: float
     m_type: str
     content: str
-    sender: str
-    receiver: str
+    sender: int
+    receiver: int
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -115,8 +115,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         async def callback(body):
             message_sent = MessageSent.model_validate_json(body.body.decode())
-            if message_sent.receiver == self.user_id:
-                await self.chat_message(message_sent)
+            await self.chat_message(message_sent)
 
         # 建立queue
         queue_name_receive = str(self.user_id)
@@ -148,7 +147,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             aio_pika.Message(
                 body=message_json.encode(),  # 将消息转换为 bytes
             ),
-            routing_key=message_received.receiver,  # 不指定 routing_key
+            routing_key=str(message_received.receiver),  # 不指定 routing_key
         )
 
     async def chat_message(self, message_sent: MessageSent):

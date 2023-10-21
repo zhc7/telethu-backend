@@ -27,15 +27,17 @@ def login(req: HttpRequest):
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
-    user_email = require(
-        body, "user_email", "string", err_msg="Missing or error type of [email]"
+    userEmail = require(
+        body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
 
-    # 检查用户名是否存在, 通过
-    if not User.objects.filter(user_email=user_email).exists():
-        return request_failed(2, "User doesn't exists", status_code=401)
-    user = User.objects.get(user_email=user_email)
+
+    # 检查用户名是否存在
+    if not User.objects.filter(userEmail=userEmail).exists():
+        return request_failed(2, "Username not exists", status_code=401)
+
     # 检查密码是否正确
+    user = User.objects.get(userEmail=userEmail)
 
     # 利用 SHA256 算法对用户输入的密码进行 5 次加密，与正确的密码（同样已经加密 5 次）进行对比
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
@@ -48,7 +50,7 @@ def login(req: HttpRequest):
     token = generate_jwt_token(user_id)
     # 这个生成的 Token 保证了安全性：其 payload 当中只有 userName 字段，并不含有密码。因此黑客即使截获了 JWT token 之后也无法
     # 获取登录所需的全部信息。在需要判断用户是否存在的场合，具体实现机制如下：从 JWT Token 的字段当中获得 userName 字段，并利用该
-    # 字段去 User 数据库当中获得 user_email=email的用户，如果存在，则说明用户存在，否则说明用户不存在。
+    # 字段去 User 数据库当中获得 userEmail=email的用户，如果存在，则说明用户存在，否则说明用户不存在。
 
     # TODO：
     session = SessionData(req)
@@ -65,6 +67,7 @@ def login(req: HttpRequest):
     response_data = {
         "token": token,
         "user_id": user.id,
+        "UserName": user.username,
     }
     return request_success(response_data)
 
@@ -84,10 +87,10 @@ def logout(req: HttpRequest):
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
-    user_email = require(
-        body, "user_email", "string", err_msg="Missing or error type of [email]"
+    userEmail = require(
+        body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
-    if not User.objects.filter(user_email=user_email).exists():
+    if not User.objects.filter(userEmail=userEmail).exists():
         return request_failed(2, "Username not exists", status_code=401)
     user = User.objects.get(user_email=user_email)
     user_id = user.id
@@ -123,21 +126,21 @@ def register(req: HttpRequest):
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
-    user_email = require(
-        body, "user_email", "string", err_msg="Missing or error type of [email]"
+    userEmail = require(
+        body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
 
     # phone = require(body, "phone", "string", err_msg="Missing or error type of [phone]")
     # 检查用户邮箱是否已存在
-    if User.objects.filter(user_email=user_email).exists():
-        return request_failed(2, "User_email already exists", status_code=401)
+    if User.objects.filter(userEmail=userEmail).exists():
+        return request_failed(2, "userEmail already exists", status_code=401)
 
     # 检查用户名格式，密码格式，手机号格式,如果不符合要求，返回422.有需求改变取check_require函数去改动
     if not check_require(username, "username"):
         return request_failed(2, "Invalid username", status_code=422)
     if not check_require(password, "password"):
         return request_failed(2, "Invalid password", status_code=422)
-    if not check_require(user_email, "email"):
+    if not check_require(userEmail, "email"):
         return request_failed(2, "Invalid email", status_code=422)
 
     # if not check_require (phone, "phone"):
@@ -149,7 +152,7 @@ def register(req: HttpRequest):
 
     # 利用 SHA256 算法对新建用户的密码进行 5 次加密
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
-    user = User(username=username, password=hashed_password, user_email=user_email)
+    user = User(username=username, password=hashed_password, userEmail=userEmail)
     user.save()
     return request_success()
 
@@ -164,8 +167,8 @@ def check_friend_request(req: HttpRequest):
     payload = check_jwt_token(token)
     if payload is not None:
         # 从 payload 当中获得 username 字段
-        user_email = payload["user_email"]
-        users = User.objects.filter(user_email=user_email)
+        userEmail = payload["userEmail"]
+        users = User.objects.filter(userEmail=userEmail)
         if len(users) == 0:
             # 没有找到相应的 user
             return JsonResponse({"code": 2, "info": "User not found"}, status=401)
@@ -194,8 +197,8 @@ def get_user_and_friend(req: HttpRequest):  # 获得好友列表
     # 获得users
     token = req.META["HTTP_AUTHORIZATION"]
     payload = check_jwt_token(token)
-    user_email = payload["user_email"]
-    user = User.objects.get(user_email=user_email)
+    userEmail = payload["userEmail"]
+    user = User.objects.get(userEmail=userEmail)
     # 获得friend
     body = json.loads(req.body)
     friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
@@ -398,7 +401,7 @@ def delete_friend(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def get_friend_list(req: HttpRequest):
     # 检查请求方法
-    if req.method != "POST":
+    if req.method != "GET":
         return BAD_METHOD
     # 检查请求头
     if not "HTTP_AUTHORIZATION" in req.META:
@@ -409,8 +412,8 @@ def get_friend_list(req: HttpRequest):
     payload = check_jwt_token(token)
     if payload is not None:
         # 从 payload 当中获得 username 字段
-        user_email = payload["user_email"]
-        users = User.objects.filter(user_email=user_email)
+        userEmail = payload["userEmail"]
+        users = User.objects.filter(userEmail=userEmail)
         if len(users) == 0:
             # 没有找到相应的 user
             return request_failed(2, "User not found", status_code=401)
@@ -421,7 +424,7 @@ def get_friend_list(req: HttpRequest):
     # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
     # 找出所有的friend
     friends = []
-    user = User.objects.get(user_email=user_email)
+    user = User.objects.get(userEmail=userEmail)
     for friendship in user.user1_friendships.all():
         if friendship.state == 1:
             friends.append(friendship.user2)
@@ -446,7 +449,7 @@ def get_friend_list(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def get_apply_list(req: HttpRequest):
     # 检查请求方法
-    if req.method != "POST":
+    if req.method != "GET":
         return BAD_METHOD
     # 检查请求头
     if not "HTTP_AUTHORIZATION" in req.META:
@@ -457,8 +460,8 @@ def get_apply_list(req: HttpRequest):
     payload = check_jwt_token(token)
     if payload is not None:
         # 从 payload 当中获得 username 字段
-        user_email = payload["user_email"]
-        users = User.objects.filter(user_email=user_email)
+        userEmail = payload["userEmail"]
+        users = User.objects.filter(userEmail=userEmail)
         if len(users) == 0:
             # 没有找到相应的 user
             return request_failed(2, "User not found", status_code=401)
@@ -469,7 +472,7 @@ def get_apply_list(req: HttpRequest):
     # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
     # 找出所有的friend
     friends = []
-    user = User.objects.get(user_email=user_email)
+    user = User.objects.get(userEmail=userEmail)
     for friendship in user.user1_friendships.all():
         if friendship.state == 0:
             friends.append(friendship.user2)
