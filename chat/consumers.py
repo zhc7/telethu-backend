@@ -32,42 +32,59 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.public_exchange = None
 
     @database_sync_to_async
-    def get_user_id_with_jwt_and_session(self, jwt_token, session_username):
-        print("session_username is: ", session_username)
+    def get_user_id_with_jwt_and_session(self, jwt_token, session_email):
+        print("session_email in jwt&session is: ", session_email)
         # 从 jwt_token 的 payload 当中 获取 username
+        print("jwt token in func is: ", jwt_token)
         check_result = check_jwt_token(jwt_token)
+        print("check_result is: ", check_result)
         if check_result is None:
             return request_failed(
                 2, "JWT not found or JWT format error in consumer", status_code=401
             )
         else:
-            username = check_result["username"]
-            print("username is: ", username)
-            user = User.objects.filter(username=username)
+            user_email = check_result["user_email"]
+            print("user_email is: ", user_email)
+            user = User.objects.filter(user_email=user_email)
             if len(user) == 0:
+                print("no such user! ")
                 return request_failed(
                     2, "User doesn't exist in consumer", status_code=401
                 )
             else:
-                if session_username == username:
-
+                if session_email == user_email:
+                    print("great! session_email matches user email!")
                     return user[0].id
                 else:
+                    print("failure! session_email and user email doesn't match!")
                     return request_failed(
-                        2, "session_name doesn't match username in jwt", status_code=401
+                        2,
+                        "session_email doesn't match user_email in jwt",
+                        status_code=401,
                     )
+
+    @database_sync_to_async
+    def get_session_email(self):
+        session_data = self.scope.get("session", {})
+        print("session_data we get is: ", session_data)
+        all_session_fields = session_data.keys()
+        print("All session fields:", all_session_fields)
+
+        session_email = session_data.get("user_email")
+        print("session_email in func is: ", session_email)
+        return session_email
 
     async def connect(self):
         # 建立 WebSocket 连接
         await self.accept()
         # 获取当前用户
-        jwt_token = self.scope.get("query_string").decode("utf-8")
-        # 这里似乎还需要获取 session_id，但是如果也要使用 Token ID，那么获取 session_id 需要做些什么呢？
-        session_data = self.scope.get("session", {})
-        session_username = session_data.get("username")
-        self.user_id = self.get_user_id_with_jwt_and_session(
-            jwt_token, session_username
-        )
+        print("the scope is: ", self.scope)
+        headers = dict(self.scope.get("headers", []))
+        jwt_token = headers.get(b"authorization", b"").decode("utf-8")
+        session_email = await self.get_session_email()
+        print("session email is: ", session_email)
+        self.user_id = await self.get_user_id_with_jwt_and_session(jwt_token, session_email)
+        print("user_id in connect is: ", self.user_id)
         # 异步启动消息消费
         await self.start_consuming()
 
@@ -93,7 +110,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.public_exchange = await channel.declare_exchange(
             exchange_name, type="direct"
         )
-
         # 获取好友列表
         # friends_id = await self.query_friends()
 
