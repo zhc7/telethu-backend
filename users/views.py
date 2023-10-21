@@ -386,7 +386,7 @@ def delete_friend(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def get_friend_list(req: HttpRequest):
     # 检查请求方法
-    if req.method != "POST":
+    if req.method != "GET":
         return BAD_METHOD
     # 检查请求头
     if not "HTTP_AUTHORIZATION" in req.META:
@@ -434,7 +434,7 @@ def get_friend_list(req: HttpRequest):
 @csrf_exempt  # 允许跨域,便于测试
 def get_apply_list(req: HttpRequest):
     # 检查请求方法
-    if req.method != "POST":
+    if req.method != "GET":
         return BAD_METHOD
     # 检查请求头
     if not "HTTP_AUTHORIZATION" in req.META:
