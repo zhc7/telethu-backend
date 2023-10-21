@@ -114,6 +114,7 @@ class SimpleMiddleware:
             return request_failed(2, "Can't find session and token!", status_code=401)
         session = SessionData(request)
         request.user_id = session.user_id
+        print("request id:", request.user_id)
         return 0
 
     # 在收到 response 的时候，我们是不是应该做些什么...

@@ -4,7 +4,7 @@ README.md
 
 **/__pycache__
 .pytest_cache
-db.sqlite3
+db/db.sqlite3
 
 .coverage
 coverage-reports

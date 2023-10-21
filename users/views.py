@@ -21,7 +21,7 @@ def login(req: HttpRequest):
 
     # 检查请求体
     body = json.loads(req.body)
-    userName = require(
+    user_name = require(
         body, "userName", "string", err_msg="Missing or error type of [userName]"
     )
     password = require(
@@ -43,7 +43,7 @@ def login(req: HttpRequest):
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=401)
-    if user.username != userName:
+    if user.username != user_name:
         return request_failed(2, "Username doesn't match email!", status_code=401)
     user_id = user.id
     # 生成token
@@ -81,7 +81,7 @@ def logout(req: HttpRequest):
 
     # 检查用户是否存在
     body = json.loads(req.body)
-    userName = require(
+    user_name = require(
         body, "userName", "string", err_msg="Missing or error type of [userName]"
     )
     password = require(
@@ -92,7 +92,7 @@ def logout(req: HttpRequest):
     )
     if not User.objects.filter(userEmail=userEmail).exists():
         return request_failed(2, "Username not exists", status_code=401)
-    user = User.objects.get(user_email=user_email)
+    user = User.objects.get(userEmail=userEmail)
     user_id = user.id
     session = SessionData(req)
     if user_id != session.user_id:
@@ -100,9 +100,10 @@ def logout(req: HttpRequest):
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=401)
-    if userName != user.username:
+    if user_name != user.username:
         return request_failed(2, "Wrong username!", status_code=401)
     # 在 logout 的时候需要将 session 的 user 字段置空
+
     session = SessionData(req)
     session.user_id = None
 
