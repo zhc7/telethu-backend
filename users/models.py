@@ -13,7 +13,7 @@ class User(models.Model):
         default="https://images.unsplash.com/photo-1642921131008-b13897b36d17?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8JUU2JUI4JTg1JUU1JThEJThFJUU1JUE0JUE3JUU1JUFEJUE2fGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
     )
     created_time = models.DateTimeField(auto_now_add=True)
-
+    # TODO: email字段
     class Meta:
         pass
 

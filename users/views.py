@@ -163,21 +163,6 @@ def check_friend_request(req: HttpRequest):
     # 检查请求方法
     if req.method != "POST":
         return JsonResponse({"code": 2, "info": "Bad method"}, status=400)
-    # 检查请求头与用户是否存在
-    token = req.META["HTTP_AUTHORIZATION"]
-    payload = check_jwt_token(token)
-    if payload is not None:
-        # 从 payload 当中获得 username 字段
-        userEmail = payload["userEmail"]
-        users = User.objects.filter(userEmail=userEmail)
-        if len(users) == 0:
-            # 没有找到相应的 user
-            return JsonResponse({"code": 2, "info": "User not found"}, status=401)
-    else:
-        return JsonResponse(
-            {"code": 2, "info": "Missing JWT payload or improper JWT format"},
-            status=401,
-        )
     # 检查请求体与好友是否存在
     try:
         body = json.loads(req.body)
@@ -196,10 +181,7 @@ def check_friend_request(req: HttpRequest):
 # 用于获得用户和好友的函数
 def get_user_and_friend(req: HttpRequest):  # 获得好友列表
     # 获得users
-    token = req.META["HTTP_AUTHORIZATION"]
-    payload = check_jwt_token(token)
-    userEmail = payload["userEmail"]
-    user = User.objects.get(userEmail=userEmail)
+    user = User.objects.get(id=req.user_id)
     # 获得friend
     body = json.loads(req.body)
     friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
@@ -405,27 +387,10 @@ def get_friend_list(req: HttpRequest):
     if req.method != "GET":
         return BAD_METHOD
     # 检查请求头
-    if not "HTTP_AUTHORIZATION" in req.META:
-        return request_failed(2, "Missing authorization header", status_code=401)
-
-    # 检查用户是否存在
-    token = req.META["HTTP_AUTHORIZATION"]
-    payload = check_jwt_token(token)
-    if payload is not None:
-        # 从 payload 当中获得 username 字段
-        userEmail = payload["userEmail"]
-        users = User.objects.filter(userEmail=userEmail)
-        if len(users) == 0:
-            # 没有找到相应的 user
-            return request_failed(2, "User not found", status_code=401)
-    else:
-        return request_failed(
-            2, "Missing JWT payload or improper JWT format", status_code=401
-        )
     # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
     # 找出所有的friend
     friends = []
-    user = User.objects.get(userEmail=userEmail)
+    user = User.objects.get(id=req.user_id)
     for friendship in user.user1_friendships.all():
         if friendship.state == 1:
             friends.append(friendship.user2)
@@ -453,30 +418,13 @@ def get_apply_list(req: HttpRequest):
     if req.method != "GET":
         return BAD_METHOD
     # 检查请求头
-    if not "HTTP_AUTHORIZATION" in req.META:
-        return request_failed(2, "Missing authorization header", status_code=401)
-
-    # 检查用户是否存在
-    token = req.META["HTTP_AUTHORIZATION"]
-    payload = check_jwt_token(token)
-    if payload is not None:
-        # 从 payload 当中获得 username 字段
-        userEmail = payload["userEmail"]
-        users = User.objects.filter(userEmail=userEmail)
-        if len(users) == 0:
-            # 没有找到相应的 user
-            return request_failed(2, "User not found", status_code=401)
-    else:
-        return request_failed(
-            2, "Missing JWT payload or improper JWT format", status_code=401
-        )
     # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
     # 找出所有的friend
     friends = []
-    user = User.objects.get(userEmail=userEmail)
-    for friendship in user.user1_friendships.all():
-        if friendship.state == 0:
-            friends.append(friendship.user2)
+    user = User.objects.get(id=req.user_id)
+    # for friendship in user.user1_friendships.all():
+    #     if friendship.state == 0:
+    #         friends.append(friendship.user2)
     for friendship in user.user2_friendships.all():
         if friendship.state == 0:
             friends.append(friendship.user1)
