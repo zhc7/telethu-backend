@@ -68,7 +68,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         queue_receive = await channel.declare_queue(queue_name_receive)
         await queue_receive.bind(self.public_exchange)
         # 消费消息
-        await queue_receive.consume(self.callback)
+        await queue_receive.consume(self.callback, no_ack=True)
 
     async def disconnect(self, close_code):
         try:
