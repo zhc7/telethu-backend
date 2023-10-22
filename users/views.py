@@ -218,6 +218,7 @@ def apply_friend(req: HttpRequest):
             return request_failed(2, "Already blocked", status_code=401)
         elif friendship.state == 3:
             friendship.user1 = user
+            friendship.user2 = friend
             friendship.state = 0
             return request_success()
     # 创建好友关系
