@@ -42,3 +42,18 @@ class Friendship(models.Model): # 好友关系
 
     def __str__(self):
         return f'{self.user1} - {self.user2} Friendship'
+
+
+class GroupList(models.Model):
+    group_id = models.AutoField(primary_key=True)
+    group_name = models.CharField(max_length=32,default="群聊")
+    created_time = models.DateTimeField(auto_now_add=True)
+    group_avatar = models.CharField(
+        max_length=256,
+        default="https://images.unsplash.com/photo-1642921131008-b13897b36d17?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8JUU2JUI4JTg1JUU1JThEJThFJUU1JUE0JUE3JUU1JUFEJUE2fGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    )
+    group_members = models.ManyToManyField(User, related_name='group_members')
+        # 群主管理员之后再加
+        # group_admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_admin')
+
+
