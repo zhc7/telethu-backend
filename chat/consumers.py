@@ -4,6 +4,7 @@ from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pydantic import BaseModel
 from users.models import Friendship, GroupList, User
+import json
 
 
 class Message(BaseModel):
@@ -34,6 +35,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.user_id = self.scope["url_route"]["kwargs"]["user_id"]
         # 异步启动消息消费
         await self.start_consuming()
+        # 发送好友列表
+        await self.return_group_info()
+
+    @database_sync_to_async
+    def query_group_info(self, group_id_list):
+        # 这个方法执行同步数据库查询
+        group_info = {}
+        for group_id in group_id_list:
+            group = GroupList.objects.filter(group_id=group_id).first()
+            users_info = []
+            for user in group.group_members.all():
+                user_info = {
+                    "user_id": user.id,
+                    "username": user.username,
+                    "avatar": user.avatar,
+                }
+                users_info.append(user_info)
+            group_info[group_id] = users_info
+        return group_info
+
+    async def return_group_info(self):
+        group_info = await self.query_group_info(self.group_list)
+        group_info_json = json.dumps(group_info)
+        await self.send(text_data=group_info_json)
 
     @database_sync_to_async
     def query_friends(self):
@@ -69,6 +94,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await queue_receive.bind(self.public_exchange)
         # 消费消息
         await queue_receive.consume(self.callback, no_ack=True)
+        # 用户订阅群聊的消息
+        queue_for_group = await channel.declare_queue("group_" + str(self.user_id))
+        for group_id in self.group_list:
+            exchange = await channel.declare_exchange("group_" + str(group_id), type="fanout")
+            await queue_for_group.bind(exchange, routing_key=str(group_id))
+        await queue_for_group.consume(self.callback, no_ack=True)
 
     async def disconnect(self, close_code):
         try:
@@ -129,10 +160,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         elif message.req_type == "function":
             if message.fun_type == "create_group":
                 # 寻找到queue并且consume
-                queue_name_receive = "group_" + str(message.sender)
+                exchange_name = "group_" + str(message.sender)
                 channel = await self.rabbitmq_connection.channel()
+                exchange = await channel.declare_exchange(exchange_name, type="fanout")
+                queue_name_receive = "group_" + str(self.user_id)
                 queue_receive = await channel.declare_queue(queue_name_receive)
-                await queue_receive.bind(self.public_exchange)
+                await queue_receive.bind(exchange)
                 await queue_receive.consume(self.callback, no_ack=True)
                 # 更新自己的群聊列表
                 group_id = message.sender  # 这个是群聊的id
@@ -174,10 +207,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_name = message.group_name
         group_members = message.content
         group = await self.build_group(group_name, group_members)
-        # 建立群聊专用queue
+        # 建立群聊专用交换机
+        exchange_name = "group_" + str(group.group_id)
         channel = await self.rabbitmq_connection.channel()
-        queue_name_receive = "group_" + str(group.group_id)
-        await channel.declare_queue(queue_name_receive)
+        await channel.declare_exchange(exchange_name, type="fanout")
         # 通知每个成员
         message.sender = group.group_id
         for member in group_members:
@@ -210,4 +243,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_package_direct(message, str(member))
 
     async def send_message_group(self, message: Message):
-        pass
+        # 如果是自己的群，直接发送消息
+        message_json = message.model_dump_json()
+        # 找到合适的exchange
+        exchange_name = "group_" + str(message.receiver)
+        channel = await self.rabbitmq_connection.channel()
+        exchange = await channel.declare_exchange(exchange_name, type="fanout")
+        await exchange.publish(
+            aio_pika.Message(
+                body=message_json.encode(),  # 将消息转换为 bytes
+            ),
+            routing_key='',  # 不指定 routing_key
+        )
