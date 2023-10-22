@@ -3,17 +3,17 @@ import aio_pika
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pydantic import BaseModel
-from users.models import Friendship, GroupList
+from users.models import Friendship, GroupList, User
 
 
 class Message(BaseModel):
     req_type: str
     fun_type: str
     time: float
-    content: str | list  # 如果是消息，content 是 str，如果是函数，content 是 list。
-    sender: int  # 如果是消息，sender 是发送者的 id，如果是函数，sender 是函数的发起者的 id。
-    receiver: int  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。
-    group_name: str = None  # 如果是消息，group_name 是 None，如果是函数，group_name 是群聊的名字。
+    content: str | list | int  # 如果是消息，content 是 str，如果是函数，content 是 list,如果是群加人，这个放群id
+    sender: int  # 如果是消息，sender 是发送者的 id，如果是函数，sender 是函数的发起者的 id。如果是群加人，这个放拉人的人
+    receiver: int  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。如果是群加人，这个放被拉的人
+    group_name: str = None  # 如果是消息，group_name 是 None，如果是函数，group_name 是群聊的名字。如果是群加人，这个不用放
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -136,7 +136,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def send_message_friend(self, message: Message):
-        await self.send_package_direct(message, str(message.receiver))
+        # 如果是自己的好友，直接发送消息
+        if message.receiver in self.friend_list:
+            await self.send_package_direct(message, str(message.receiver))
 
     @database_sync_to_async
     def build_group(self, group_name, group_members):
@@ -155,8 +157,31 @@ class ChatConsumer(AsyncWebsocketConsumer):
         for member in group_members:
             await self.send_package_direct(message, str(member))
 
-    async def add_group_member(self, content: {}):
-        pass
+    @database_sync_to_async
+    def add_member(self, group_id, add_member):
+        group = GroupList.objects.filter(group_id=group_id).first()
+        # 判断自己是否在群里，不在就加不了人
+        user = User.objects.filter(id=self.user_id).first()
+        if user not in group.group_members.all():
+            return None
+        group.group_members.add(add_member)
+        group.save()
+        group_member = group.group_members.all()
+        group_member_id = []
+        for member in group_member:
+            group_member_id.append(member.id)
+        return group_member_id
+
+    async def add_group_member(self, message: Message):
+        # 数据库加好友了，
+        group_id = message.content
+        add_member = message.receiver
+        group_member = await self.add_member(group_id, add_member)
+        # 通知每个成员
+        if group_member is None:
+            return
+        for member in group_member:
+            await self.send_package_direct(message, str(member))
 
     async def send_message_group(self, message: Message):
         pass
