@@ -440,3 +440,34 @@ def get_apply_list(req: HttpRequest):
         ]
     }
     return request_success(response_data)
+
+
+@CheckRequire
+@csrf_exempt  # 允许跨域,便于测试
+def get_you_apply_list(req: HttpRequest):
+    # 检查请求方法
+    if req.method != "GET":
+        return BAD_METHOD
+    # 检查请求头
+    # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
+    # 找出所有的friend
+    friends = []
+    user = User.objects.get(id=req.user_id)
+    for friendship in user.user1_friendships.all():
+        if friendship.state == 0:
+            friends.append(friendship.user2)
+    # for friendship in user.user2_friendships.all():
+    #     if friendship.state == 0:
+    #         friends.append(friendship.user1)
+    # 返回friend列表,包括friend的id,username,avatar
+    response_data = {
+        "friends": [
+            {
+                "id": friend.id,
+                "username": friend.username,
+                "avatar": friend.avatar,
+            }
+            for friend in friends
+        ]
+    }
+    return request_success(response_data)
