@@ -114,7 +114,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_members = {}
         for group in groups:
             group_id.append(group.group_id)
-            group_members[group.group_id] = group.group_members.all()
+            group_members_user = group.group_members.all()
+            group_members_id = []
+            for user in group_members_user:
+                group_members_id.append(user.id)
+            group_members[group.group_id] = group_members_id
             group_names[group.group_id] = group.group_name
         return group_id, group_members, group_names
 
@@ -123,7 +127,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if message.req_type == "message":
             await self.chat_message(message)
         elif message.req_type == "function":
-            await self.chat_message(message)
+            if message.fun_type == "create_group":
+                # 寻找到queue并且consume
+                queue_name_receive = "group_" + str(message.sender)
+                channel = await self.rabbitmq_connection.channel()
+                queue_receive = await channel.declare_queue(queue_name_receive)
+                await queue_receive.bind(self.public_exchange)
+                await queue_receive.consume(self.callback, no_ack=True)
+                # 更新自己的群聊列表
+                group_id = message.sender  # 这个是群聊的id
+                if group_id not in self.group_list:
+                    self.group_list.append(group_id)
+                    self.group_members[group_id] = []
+                    self.group_names[group_id] = message.group_name
+                    self.group_members[group_id] = message.content
+                else:
+                    self.group_members[group_id].append(message.content)
+                    self.group_names[group_id] = message.group_name
+                    # 发送消息给前端
+                await self.chat_message(message)
 
     async def send_package_direct(self, message: Message, receiver: str):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
@@ -152,6 +174,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_name = message.group_name
         group_members = message.content
         group = await self.build_group(group_name, group_members)
+        # 建立群聊专用queue
+        channel = await self.rabbitmq_connection.channel()
+        queue_name_receive = "group_" + str(group.group_id)
+        await channel.declare_queue(queue_name_receive)
         # 通知每个成员
         message.sender = group.group_id
         for member in group_members:
