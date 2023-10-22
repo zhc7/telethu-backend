@@ -159,26 +159,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.chat_message(message)
         elif message.req_type == "function":
             if message.fun_type == "create_group":
-                # 寻找到queue并且consume
-                exchange_name = "group_" + str(message.sender)
-                channel = await self.rabbitmq_connection.channel()
-                exchange = await channel.declare_exchange(exchange_name, type="fanout")
-                queue_name_receive = "group_" + str(self.user_id)
-                queue_receive = await channel.declare_queue(queue_name_receive)
-                await queue_receive.bind(exchange)
-                await queue_receive.consume(self.callback, no_ack=True)
-                # 更新自己的群聊列表
-                group_id = message.sender  # 这个是群聊的id
-                if group_id not in self.group_list:
-                    self.group_list.append(group_id)
-                    self.group_members[group_id] = []
-                    self.group_names[group_id] = message.group_name
-                    self.group_members[group_id] = message.content
+                await self.get_create_massage(message)
+            elif message.fun_type == "add_group_member":
+                # 如果是刚刚被添加的人
+                if message.receiver == self.user_id:
+                    await self.get_create_massage(message)
                 else:
-                    self.group_members[group_id].append(message.content)
-                    self.group_names[group_id] = message.group_name
-                    # 发送消息给前端
-                await self.chat_message(message)
+                    # 给群聊列表增加人
+                    group_id = message.content
+                    if group_id not in self.group_list:
+                        print("group_id not in self.group_list,there is bug in callback")
+                    else:
+                        self.group_members[group_id].append(message.receiver)
+                        # 发送消息给前端
+                        await self.chat_message(message)
 
     async def send_package_direct(self, message: Message, receiver: str):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
@@ -255,3 +249,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
             ),
             routing_key='',  # 不指定 routing_key
         )
+
+    async def get_create_massage(self, message: Message):
+        exchange_name = "group_" + str(message.sender)
+        channel = await self.rabbitmq_connection.channel()
+        exchange = await channel.declare_exchange(exchange_name, type="fanout")
+        queue_name_receive = "group_" + str(self.user_id)
+        queue_receive = await channel.declare_queue(queue_name_receive)
+        await queue_receive.bind(exchange)
+        await queue_receive.consume(self.callback, no_ack=True)
+        # 更新自己的群聊列表
+        group_id = message.sender  # 这个是群聊的id
+        if group_id not in self.group_list:
+            self.group_list.append(group_id)
+            self.group_members[group_id] = []
+            self.group_names[group_id] = message.group_name
+            self.group_members[group_id] = message.content
+        else:
+            self.group_members[group_id].append(message.content)
+            self.group_names[group_id] = message.group_name
+            # 发送消息给前端
+        await self.chat_message(message)
