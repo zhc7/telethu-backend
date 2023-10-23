@@ -74,7 +74,10 @@ class SimpleMiddleware:
     # 完整的鉴权逻辑，在上面的注释当中有所提及
     def check_token_and_session(self, request):
         token = request.headers.get("Authorization")
-        if token and request.session:
+        print("token is: ", token)
+        my_user_id = request.session.get("user_id")
+        print("my_user_id is: ", my_user_id)
+        if token and my_user_id:
             print("branch 1")
             token_result = self.check_token(request)
             if token_result == 0:
@@ -85,7 +88,9 @@ class SimpleMiddleware:
                 )
             elif token_result == 2:
                 if request.session.get("user_id") is None:
-                    return request_failed(2, "Login has expired or haven't login!", status_code=401)
+                    return request_failed(
+                        2, "Login has expired or haven't login 1!", status_code=401
+                    )
                 return request_failed(
                     2,
                     "User id in session and token doesn't match! ",
@@ -93,8 +98,10 @@ class SimpleMiddleware:
                 )
             login_result = self.check_last_login(request)
             if login_result is None:
-                return request_failed(2, "Login has expired or haven't login!", status_code=401)
-        elif token and not request.session:
+                return request_failed(
+                    2, "Login has expired or haven't login 2!", status_code=401
+                )
+        elif token and not my_user_id:
             print("branch 2")
             check_result = check_jwt_token(token)
             session = SessionData(request)
@@ -102,14 +109,18 @@ class SimpleMiddleware:
                 return request_failed(2, "Invalid or expired JWT", status_code=401)
             else:
                 session.user_id = check_result["user_id"]
-        elif not token and request.session:
+        elif not token and my_user_id:
             print("branch 3")
             if request.session.get("user_id") is None:
-                return request_failed(2, "Login has expired or haven't login!", status_code=401)
+                return request_failed(
+                    2, "Login has expired or haven't login 3!", status_code=401
+                )
             login_result = self.check_last_login(request)
             if login_result is None:
-                return request_failed(2, "Login has expired or haven't login!", status_code=401)
-        else:
+                return request_failed(
+                    2, "Login has expired or haven't login 4!", status_code=401
+                )
+        elif not token and not my_user_id:
             print("branch 4")
             return request_failed(2, "Can't find session and token!", status_code=401)
         session = SessionData(request)
