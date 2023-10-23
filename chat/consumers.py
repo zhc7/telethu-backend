@@ -112,7 +112,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         # 获取好友列表
-        self.friend_list = await self.query_friends()
+        self.friend_list = await self.query_friends_info(self.user_id)
         # 获取群聊列表
         self.group_list, self.group_members, self.group_names = await self.query_group()
 
