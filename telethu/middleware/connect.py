@@ -1,9 +1,10 @@
-from channels.db import database_sync_to_async
-from users.models import User
 from datetime import datetime
+
+from django.http import JsonResponse, QueryDict
+
+from users.models import User
 from utils.session import WebSocketSessionData
 from utils.utils_jwt import check_jwt_token
-from django.http import JsonResponse
 from utils.utils_request import request_failed
 
 
@@ -44,11 +45,8 @@ class QueryAuthMiddleware:
 
     # 除了利用 session 进行鉴权以外，还需要使用 request 当中的 JWT 进行鉴权
     @staticmethod
-    async def check_token(scope):
-        headers = scope["headers"]
-        headers = {val.decode("utf-8"): key.decode("utf-8") for val, key in headers}
-        jwt_token = headers["authorization"]
-        check_result = check_jwt_token(jwt_token)
+    async def check_token(scope, token):
+        check_result = check_jwt_token(token)
         print("check_result is ", check_result)
         session = WebSocketSessionData(scope)
         print("echo!")
@@ -73,15 +71,15 @@ class QueryAuthMiddleware:
 
     # 完整的鉴权逻辑，在上面的注释当中有所提及
     async def check_token_and_session(self, scope):
-        headers = scope["headers"]
-        headers = {val.decode("utf-8"): key.decode("utf-8") for val, key in headers}
-        token = headers.get("authorization")
+        query_string = scope['query_string'].decode('utf-8')
+        query_params = QueryDict(query_string)
+        token = query_params.get("token")
         sessions = scope.get("session")
         print("session is: ", sessions.keys())
         ws_user_id = sessions.get("user_id")
         if token and ws_user_id:
             print("WS branch 1")
-            token_result = self.check_token(scope)
+            token_result = self.check_token(scope, token)
             print("WS token result is: ", token_result)
             if token_result == 0:
                 return JsonResponse({"code": 2, "info": "User not found"}, status=401)
@@ -146,6 +144,6 @@ class QueryAuthMiddleware:
         sessions = scope.get("session")
         my_user_id = sessions.get("user_id")
         print(scope.get("session"))
-        new_scope["user_id"]= my_user_id
+        new_scope["user_id"] = my_user_id
         print("out of WS middleware!")
         return await self.app(new_scope, receive, send)
