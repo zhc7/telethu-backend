@@ -1,5 +1,5 @@
 # 使用官方的 RabbitMQ 镜像
-FROM rabbitmq:3-management
+FROM rabbitmq:3.12-management
 
 # 添加您的应用程序代码、依赖项等
 
