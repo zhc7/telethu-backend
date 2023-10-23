@@ -52,7 +52,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 建立 WebSocket 连接
         await self.accept()
         # 获取当前用户
-        self.user_id = self.scope["url_route"]["kwargs"]["user_id"]
+        self.user_id = self.scope["user_id"]
+        print("user id we get in connect is: ", self.user_id)
         # 异步启动消息消费
         await self.start_consuming()
         # 发送好友列表
@@ -161,7 +162,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         friends = friends | Friendship.objects.filter(user2=self.user_id)
         friends_id = []
         for friend in friends:
-            friend_id = friend.user1.id if friend.user1.id != self.user_id else friend.user2.id
+            friend_id = (
+                friend.user1.id if friend.user1.id != self.user_id else friend.user2.id
+            )
             friends_id.append(friend_id)
         return friends_id
 
@@ -206,7 +209,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         # 发送消息给前端
                         await self.chat_message(message)
 
-    async def send_package_direct(self, message: Message, receiver: str):  # 无论是什么，总会将一个package发送进direct queue
+    async def send_package_direct(
+        self, message: Message, receiver: str
+    ):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
         # 发送消息给rabbitmq
         await self.public_exchange.publish(

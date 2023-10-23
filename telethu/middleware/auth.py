@@ -6,7 +6,7 @@ from users.models import User
 from utils.session import SessionData
 from utils.utils_jwt import check_jwt_token
 from utils.utils_request import request_failed
-from django.http import HttpRequest, JsonResponse
+from django.http import JsonResponse
 
 # TODO: 在中间件中编写获得 id（ django-session，触发 session 机制可以自动获得 session_data ）
 

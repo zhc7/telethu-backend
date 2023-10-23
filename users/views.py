@@ -76,9 +76,6 @@ def logout(req: HttpRequest):
 
     # 检查用户是否存在
     body = json.loads(req.body)
-    user_name = require(
-        body, "userName", "string", err_msg="Missing or error type of [userName]"
-    )
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
@@ -95,8 +92,6 @@ def logout(req: HttpRequest):
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=401)
-    if user_name != user.username:
-        return request_failed(2, "Wrong username!", status_code=401)
     # 在 logout 的时候需要将 session 的 user 字段置空
 
     session = SessionData(req)
