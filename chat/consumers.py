@@ -1,20 +1,40 @@
-# chat/consumers.py
+import enum
+import json
+
 import aio_pika
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pydantic import BaseModel
+
 from users.models import Friendship, GroupList, User
-import json
+
+
+class MessageType(enum.IntEnum):
+    TEXT = 0
+    IMAGE = 1
+    AUDIO = 2
+    VIDEO = 3
+    FILE = 4
+    FUNCTION = 5  # this marks the line between message and function, do not set this directly
+    FUNC_ADD_FRIEND = 6
+    FUNC_CREATE_GROUP = 7
+    FUNC_ADD_GROUP_MEMBER = 8
+
+
+class TargetType(enum.IntEnum):
+    FRIEND = 0
+    GROUP = 1
+    OTHER = 2
 
 
 class Message(BaseModel):
-    req_type: str
-    fun_type: str
+    m_type: MessageType = MessageType.TEXT
+    t_type: TargetType = TargetType.OTHER
     time: float
     content: str | list | int  # 如果是消息，content 是 str，如果是函数，content 是 list,如果是群加人，这个放群id
     sender: int  # 如果是消息，sender 是发送者的 id，如果是函数，sender 是函数的发起者的 id。如果是群加人，这个放拉人的人
     receiver: int  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。如果是群加人，这个放被拉的人
-    group_name: str = None  # 如果是消息，group_name 是 None，如果是函数，group_name 是群聊的名字。如果是群加人，这个不用放
+    info: str  # for message referencing, forwarding and appending info
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -36,7 +56,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 异步启动消息消费
         await self.start_consuming()
         # 发送好友列表
-        await self.return_group_info()
+        await self.send_meta_info()
 
     @database_sync_to_async
     def query_group_info(self, group_id_list):
@@ -55,11 +75,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             group_info[group_id] = users_info
         return group_info
 
-    async def return_group_info(self):
-        group_info = await self.query_group_info(self.group_list)
-        group_info_json = json.dumps(group_info)
-        await self.send(text_data=group_info_json)
-
     @database_sync_to_async
     def query_friends(self):
         # 这个方法执行同步数据库查询
@@ -73,15 +88,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
             friends_id.append(friend_id)
         return friends_id
 
+    async def send_meta_info(self):
+        group_info = await self.query_group_info(self.group_list)
+        group_info_json = json.dumps(group_info)
+        await self.send(text_data=group_info_json)
+
     async def start_consuming(self):
         # 建立rabbitmq连接
         self.rabbitmq_connection = await aio_pika.connect_robust("amqp://localhost")
         channel = await self.rabbitmq_connection.channel()
+
         # 使用 Exchange 对象来声明交换机
         exchange_name = "public_exchange"
         self.public_exchange = await channel.declare_exchange(
             exchange_name, type="direct"
         )
+
         # 获取好友列表
         self.friend_list = await self.query_friends()
         # 获取群聊列表
@@ -94,6 +116,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await queue_receive.bind(self.public_exchange)
         # 消费消息
         await queue_receive.consume(self.callback, no_ack=True)
+
         # 用户订阅群聊的消息
         queue_for_group = await channel.declare_queue("group_" + str(self.user_id))
         for group_id in self.group_list:
@@ -110,15 +133,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data=None, _=None):
         # 接收来自前端的消息
         message_received = Message.model_validate_json(text_data)
-        if message_received.req_type == "message":
-            if message_received.fun_type == "friend":
-                await self.send_message_friend(message_received)
-            elif message_received.fun_type == "group":
-                await self.send_message_group(message_received)
-        elif message_received.req_type == "function":
-            if message_received.fun_type == "create_group":
+        match message_received.m_type:
+            case _ if message_received.m_type < MessageType.FUNCTION:
+                if message_received.t_type == TargetType.FRIEND:
+                    await self.send_message_friend(message_received)
+                elif message_received.t_type == TargetType.GROUP:
+                    await self.send_message_group(message_received)
+            case MessageType.FUNC_ADD_FRIEND:
                 await self.create_group(message_received)
-            elif message_received.fun_type == "add_group_member":
+            case MessageType.FUNC_ADD_GROUP_MEMBER:
                 await self.add_group_member(message_received)
 
     async def chat_message(self, message_sent: Message):
@@ -155,18 +178,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def callback(self, body):
         message = Message.model_validate_json(body.body.decode())
-        if message.req_type == "message":
-            await self.chat_message(message)
-        elif message.req_type == "function":
-            if message.fun_type == "create_group":
+        match message.m_type:
+            case _ if message.m_type < MessageType.FUNCTION:
+                await self.chat_message(message)
+            case MessageType.FUNC_CREATE_GROUP:
                 await self.get_create_massage(message)
-            elif message.fun_type == "add_group_member":
+            case MessageType.FUNC_ADD_GROUP_MEMBER:
                 # 如果是刚刚被添加的人
                 if message.receiver == self.user_id:
                     await self.get_create_massage(message)
                 else:
                     # 给群聊列表增加人
-                    group_id = message.content
+                    group_id = message.receiver
                     if group_id not in self.group_list:
                         print("group_id not in self.group_list,there is bug in callback")
                     else:
@@ -198,7 +221,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def create_group(self, message: Message):
         # 建群
-        group_name = message.group_name
+        group_name = message.info
         group_members = message.content
         group = await self.build_group(group_name, group_members)
         # 建立群聊专用交换机
@@ -263,10 +286,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if group_id not in self.group_list:
             self.group_list.append(group_id)
             self.group_members[group_id] = []
-            self.group_names[group_id] = message.group_name
+            self.group_names[group_id] = message.info
             self.group_members[group_id] = message.content
         else:
             self.group_members[group_id].append(message.content)
-            self.group_names[group_id] = message.group_name
+            self.group_names[group_id] = message.info
             # 发送消息给前端
         await self.chat_message(message)
