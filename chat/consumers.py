@@ -76,21 +76,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return group_info
 
     @database_sync_to_async
-    def query_friends(self):
+    def query_friends_info(self, user_id):
         # 这个方法执行同步数据库查询
-        friends = Friendship.objects.filter(user1=self.user_id)
-        friends = friends | Friendship.objects.filter(user2=self.user_id)
+        friends = Friendship.objects.filter(user1=user_id)
+        friends = friends | Friendship.objects.filter(user2=user_id)
         friends_id = []
         for friend in friends:
-            friend_id = (
-                friend.user1.id if friend.user1.id != self.user_id else friend.user2.id
-            )
-            friends_id.append(friend_id)
+            if friend.state == 1:
+                if str(friend.user1.id) == str(user_id):
+                    friend_id = friend.user2.id
+                else:
+                    friend_id = friend.user1.id
+                if friend_id not in friends_id:
+                    friends_id.append(friend_id)
         return friends_id
 
     async def send_meta_info(self):
-        group_info = await self.query_group_info(self.group_list)
-        group_info_json = json.dumps(group_info)
+        # group_info = await self.query_group_info(self.group_list)
+        # friend_info = await self.query_friends()
+        group_info_json = json.dumps(await self.query_group_info(self.group_list))
+        friend_info_json = json.dumps(await self.query_friends_info(self.user_id))
+        await self.send(text_data=friend_info_json)
         await self.send(text_data=group_info_json)
 
     async def start_consuming(self):
@@ -139,7 +145,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     await self.send_message_friend(message_received)
                 elif message_received.t_type == TargetType.GROUP:
                     await self.send_message_group(message_received)
-            case MessageType.FUNC_ADD_FRIEND:
+            case MessageType.FUNC_CREATE_GROUP:
                 await self.create_group(message_received)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
                 await self.add_group_member(message_received)
@@ -185,13 +191,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.get_create_massage(message)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
                 # 如果是刚刚被添加的人
-                if message.receiver == self.user_id:
+                if str(message.receiver) == str(self.user_id):
                     await self.get_create_massage(message)
                 else:
                     # 给群聊列表增加人
-                    group_id = message.receiver
+                    group_id = message.content
                     if group_id not in self.group_list:
                         print("group_id not in self.group_list,there is bug in callback")
+                        print("group_id: ", group_id)
+                        print("self.group_list: ", self.group_list)
+                        print("self.user_id: ", self.user_id)
                     else:
                         self.group_members[group_id].append(message.receiver)
                         # 发送消息给前端
