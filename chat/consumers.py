@@ -235,6 +235,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def create_group(self, message: Message):
         # 建群
+        if self.user_id not in message.content:
+            message.content = [self.user_id] + message.content
         group_name = message.info
         group_members = message.content
         group = await self.build_group(group_name, group_members)
