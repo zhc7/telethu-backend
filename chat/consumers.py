@@ -29,6 +29,7 @@ class TargetType(enum.IntEnum):
 
 
 class Message(BaseModel):
+    message_id: int
     m_type: MessageType = MessageType.TEXT
     t_type: TargetType = TargetType.OTHER
     time: float
