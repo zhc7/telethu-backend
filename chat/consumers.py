@@ -6,8 +6,8 @@ from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pydantic import BaseModel
 
-from users.models import Friendship, GroupList, User
-from utils.uid import globalIdMaker
+from users.models import Friendship, GroupList, User, MessageList
+from utils.uid import globalIdMaker, globalMessageIdMaker
 
 
 class MessageType(enum.IntEnum):
@@ -16,7 +16,9 @@ class MessageType(enum.IntEnum):
     AUDIO = 2
     VIDEO = 3
     FILE = 4
-    FUNCTION = 5  # this marks the line between message and function, do not set this directly
+    FUNCTION = (
+        5  # this marks the line between message and function, do not set this directly
+    )
     FUNC_ADD_FRIEND = 6
     FUNC_CREATE_GROUP = 7
     FUNC_ADD_GROUP_MEMBER = 8
@@ -84,10 +86,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_info = {}
         for group_id in group_id_list:
             group = GroupList.objects.filter(group_id=group_id).first()
-            group_date = GroupData(id=group.group_id, name=group.group_name, avatar=group.group_avatar, members=[])
+            group_date = GroupData(
+                id=group.group_id,
+                name=group.group_name,
+                avatar=group.group_avatar,
+                members=[],
+            )
             users_info = []
             for user in group.group_members.all():
-                user_info = UserData(id=user.id, name=user.username, avatar=user.avatar, email=user.userEmail)
+                user_info = UserData(
+                    id=user.id,
+                    name=user.username,
+                    avatar=user.avatar,
+                    email=user.userEmail,
+                )
                 users_info.append(user_info)
             group_date.members = users_info
             group_info[group_id] = group_date
@@ -110,7 +122,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         friends_info = {}
         for friend_id in friends_id:
             friend = User.objects.filter(id=friend_id).first()
-            friend_info = UserData(id=friend.id, name=friend.username, avatar=friend.avatar, email=friend.userEmail)
+            friend_info = UserData(
+                id=friend.id,
+                name=friend.username,
+                avatar=friend.avatar,
+                email=friend.userEmail,
+            )
             friends_info[friend_id] = friend_info
         return friends_info
 
@@ -150,7 +167,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 用户订阅群聊的消息
         queue_for_group = await channel.declare_queue("group_" + str(self.user_id))
         for group_id in self.group_list:
-            exchange = await channel.declare_exchange("group_" + str(group_id), type="fanout")
+            exchange = await channel.declare_exchange(
+                "group_" + str(group_id), type="fanout"
+            )
             await queue_for_group.bind(exchange, routing_key=str(group_id))
         await queue_for_group.consume(self.callback, no_ack=True)
 
@@ -173,11 +192,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.create_group(message_received)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
                 await self.add_group_member(message_received)
+        # TODO: 分配 id
+        message_received.message_id = globalMessageIdMaker.get_id()
+        # TODO: 推入自己建立的，目的是实现非阻塞的消息队列
 
     async def chat_message(self, message_sent: Message):
         # 处理来自rabbitmq队列的消息发送消息给前端
         if str(message_sent.sender) == str(self.user_id):
-            return # 不给自己发消息
+            return  # 不给自己发消息
         await self.send(text_data=message_sent.model_dump_json())
 
     @database_sync_to_async
@@ -228,7 +250,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     # 给群聊列表增加人
                     group_id = message.content
                     if group_id not in self.group_list:
-                        print("group_id not in self.group_list,there is bug in callback")
+                        print(
+                            "group_id not in self.group_list,there is bug in callback"
+                        )
                         print("group_id: ", group_id)
                         print("self.group_list: ", self.group_list)
                         print("self.user_id: ", self.user_id)
@@ -238,7 +262,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         await self.chat_message(message)
 
     async def send_package_direct(
-            self, message: Message, receiver: str
+        self, message: Message, receiver: str
     ):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
         # 发送消息给rabbitmq
@@ -256,7 +280,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def build_group(self, group_name, group_members):
-        group = GroupList.objects.create(group_id=globalIdMaker.get_id(), group_name=group_name)
+        group = GroupList.objects.create(
+            group_id=globalIdMaker.get_id(), group_name=group_name
+        )
         group.group_members.set(group_members)
         group.save()
         return group
@@ -314,7 +340,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             aio_pika.Message(
                 body=message_json.encode(),  # 将消息转换为 bytes
             ),
-            routing_key='',  # 不指定 routing_key
+            routing_key="",  # 不指定 routing_key
         )
 
     async def get_create_massage(self, message: Message):

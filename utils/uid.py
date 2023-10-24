@@ -37,3 +37,6 @@ class MessageIdMaker:
         with self.lock:
             self.id += 1
         return self.id
+
+
+globalMessageIdMaker = MessageIdMaker()

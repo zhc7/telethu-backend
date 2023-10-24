@@ -68,7 +68,7 @@ class MessageList(models.Model):
     m_type = models.IntegerField(blank=False, null=False)
     t_type = models.IntegerField(blank=False, null=False)
     time = models.DateTimeField(auto_now_add=True)
-    content = models.TextField()  # 如果是消息，content 是 str，如果是函数，content 是 list,如果是群加人，这个放群id
-    sender = models.IntegerField(blank=False, null=False)  # 如果是消息，sender 是发送者的 id，如果是函数，sender 是函数的发起者的 id。如果是群加人，这个放拉人的人
-    receiver = models.IntegerField(blank=False, null=False)  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。如果是群加人，这个放被拉的人
-    info = models.CharField()  # for message referencing, forwarding and appending info
+    content = models.TextField()
+    sender = models.IntegerField(blank=False, null=False)
+    receiver = models.IntegerField(blank=False, null=False)
+    info = models.CharField()
