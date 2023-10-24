@@ -119,7 +119,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         contacts_info: dict[int, ContactsData] = {}
         contacts_info.update(group_info)
         contacts_info.update(friend_info)
-        contacts_info = {key: val.model_dump_json() for key, val in contacts_info.items()}
+        contacts_info = {key: val.model_dump() for key, val in contacts_info.items()}
         await self.send(text_data=json.dumps(contacts_info))
 
     async def start_consuming(self):
