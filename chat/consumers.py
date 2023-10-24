@@ -1,12 +1,13 @@
 import enum
 import json
-from utils.uid import globalIdMaker
+
 import aio_pika
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pydantic import BaseModel
 
 from users.models import Friendship, GroupList, User
+from utils.uid import globalIdMaker
 
 
 class MessageType(enum.IntEnum):
@@ -35,6 +36,20 @@ class Message(BaseModel):
     sender: int  # 如果是消息，sender 是发送者的 id，如果是函数，sender 是函数的发起者的 id。如果是群加人，这个放拉人的人
     receiver: int  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。如果是群加人，这个放被拉的人
     info: str  # for message referencing, forwarding and appending info
+
+
+class ContactsData(BaseModel):
+    id: int
+    name: str
+    avatar: str
+
+
+class UserData(ContactsData):
+    email: str
+
+
+class GroupData(ContactsData):
+    members: list[UserData]
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
