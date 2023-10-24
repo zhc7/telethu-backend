@@ -1,6 +1,6 @@
 import enum
 import json
-
+from utils.uid import globalIdMaker
 import aio_pika
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -210,7 +210,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         await self.chat_message(message)
 
     async def send_package_direct(
-        self, message: Message, receiver: str
+            self, message: Message, receiver: str
     ):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
         # 发送消息给rabbitmq
@@ -228,7 +228,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def build_group(self, group_name, group_members):
-        group = GroupList.objects.create(group_name=group_name)
+        group = GroupList.objects.create(group_id=globalIdMaker.get_id(), group_name=group_name)
         group.group_members.set(group_members)
         group.save()
         return group

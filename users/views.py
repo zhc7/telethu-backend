@@ -8,7 +8,7 @@ from utils.session import SessionData
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token, check_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from utils.utils_require import check_require, CheckRequire, require
-
+from utils.uid import globalIdMaker
 
 # Create your views here.
 @CheckRequire
@@ -143,7 +143,7 @@ def register(req: HttpRequest):
 
     # 利用 SHA256 算法对新建用户的密码进行 5 次加密
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
-    user = User(username=username, password=hashed_password, userEmail=userEmail)
+    user = User(id = globalIdMaker.get_id() ,username=username, password=hashed_password, userEmail=userEmail)
     user.save()
     return request_success()
 
