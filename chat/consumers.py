@@ -47,12 +47,12 @@ class ContactsData(BaseModel):
 
 class UserData(ContactsData):
     email: str
-    category = "user"
+    category: str = "user"
 
 
 class GroupData(ContactsData):
     members: list[UserData]
-    category = "group"
+    category: str = "group"
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -83,15 +83,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_info = {}
         for group_id in group_id_list:
             group = GroupList.objects.filter(group_id=group_id).first()
+            group_date = GroupData(id=group.group_id, name=group.group_name, avatar=group.group_avatar, members=[])
             users_info = []
             for user in group.group_members.all():
-                user_info = {
-                    "user_id": user.id,
-                    "username": user.username,
-                    "avatar": user.avatar,
-                }
+                user_info = UserData(id=user.id, name=user.username, avatar=user.avatar, email=user.userEmail)
                 users_info.append(user_info)
-            group_info[group_id] = users_info
+            group_date.members = users_info
+            group_info[group_id] = group_date
         return group_info
 
     @database_sync_to_async
@@ -108,7 +106,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     friend_id = friend.user1.id
                 if friend_id not in friends_id:
                     friends_id.append(friend_id)
-        return friends_id
+        friends_info = {}
+        for friend_id in friends_id:
+            friend = User.objects.filter(id=friend_id).first()
+            friend_info = UserData(id=friend.id, name=friend.username, avatar=friend.avatar, email=friend.userEmail)
+            friends_info[friend_id] = friend_info
+        return friends_info
 
     async def send_meta_info(self):
         group_info: dict[int, GroupData] = await self.query_group_info(self.group_list)
@@ -131,7 +134,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         # 获取好友列表
-        self.friend_list = await self.query_friends_info(self.user_id)
+        self.friend_list = await self.query_friends(self.user_id)
         # 获取群聊列表
         self.group_list, self.group_members, self.group_names = await self.query_group()
 
@@ -175,16 +178,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=message_sent.model_dump_json())
 
     @database_sync_to_async
-    def query_friends(self):
+    def query_friends(self, user_id):
         # 这个方法执行同步数据库查询
-        friends = Friendship.objects.filter(user1=self.user_id)
-        friends = friends | Friendship.objects.filter(user2=self.user_id)
+        friends = Friendship.objects.filter(user1=user_id)
+        friends = friends | Friendship.objects.filter(user2=user_id)
         friends_id = []
         for friend in friends:
-            friend_id = (
-                friend.user1.id if friend.user1.id != self.user_id else friend.user2.id
-            )
-            friends_id.append(friend_id)
+            if friend.state == 1:
+                if str(friend.user1.id) == str(user_id):
+                    friend_id = friend.user2.id
+                else:
+                    friend_id = friend.user1.id
+                if friend_id not in friends_id:
+                    friends_id.append(friend_id)
         return friends_id
 
     @database_sync_to_async
