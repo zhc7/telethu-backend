@@ -175,6 +175,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, message_sent: Message):
         # 处理来自rabbitmq队列的消息发送消息给前端
+        if str(message_sent.sender) == str(self.user_id):
+            return # 不给自己发消息
         await self.send(text_data=message_sent.model_dump_json())
 
     @database_sync_to_async
