@@ -42,14 +42,17 @@ class ContactsData(BaseModel):
     id: int
     name: str
     avatar: str
+    category: str
 
 
 class UserData(ContactsData):
     email: str
+    category = "user"
 
 
 class GroupData(ContactsData):
     members: list[UserData]
+    category = "group"
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -58,8 +61,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.user_id = None
         self.rabbitmq_connection = None
         self.public_exchange = None
-        self.friend_list = None
-        self.group_list = None
+        self.friend_list: list[int] = []
+        self.group_list: list[int] = []
         self.group_members = None
         self.group_names = None
 
@@ -75,7 +78,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send_meta_info()
 
     @database_sync_to_async
-    def query_group_info(self, group_id_list):
+    def query_group_info(self, group_id_list) -> dict[int, GroupData]:
         # 这个方法执行同步数据库查询
         group_info = {}
         for group_id in group_id_list:
@@ -92,7 +95,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return group_info
 
     @database_sync_to_async
-    def query_friends_info(self, user_id):
+    def query_friends_info(self, user_id) -> dict[int, UserData]:
         # 这个方法执行同步数据库查询
         friends = Friendship.objects.filter(user1=user_id)
         friends = friends | Friendship.objects.filter(user2=user_id)
@@ -108,12 +111,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return friends_id
 
     async def send_meta_info(self):
-        # group_info = await self.query_group_info(self.group_list)
-        # friend_info = await self.query_friends()
-        group_info_json = json.dumps(await self.query_group_info(self.group_list))
-        friend_info_json = json.dumps(await self.query_friends_info(self.user_id))
-        await self.send(text_data=friend_info_json)
-        await self.send(text_data=group_info_json)
+        group_info: dict[int, GroupData] = await self.query_group_info(self.group_list)
+        friend_info: dict[int, UserData] = await self.query_friends_info(self.user_id)
+        contacts_info: dict[int, ContactsData] = {}
+        contacts_info.update(group_info)
+        contacts_info.update(friend_info)
+        contacts_info = {key: val.model_dump_json() for key, val in contacts_info.items()}
+        await self.send(text_data=json.dumps(contacts_info))
 
     async def start_consuming(self):
         # 建立rabbitmq连接
