@@ -8,7 +8,7 @@ from utils.data import Message, ContactsData
 
 def storage_callback(ch, method, properties, body):
     print("storing")
-    message = Message.model_validate_json(body.body.decode())
+    message = Message.model_validate_json(body.decode())
     # 将接收到的信息放入数据库
     mes = MessageList(
         message_id=message.message_id,

@@ -158,7 +158,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             aio_pika.Message(
                 body=message_json.encode(),  # 将消息转换为 bytes
             ),
+            routing_key="",
         )
+        print("send to storage: ", message_json)
         match message_received.m_type:
             case _ if message_received.m_type < MessageType.FUNCTION:
                 if message_received.t_type == TargetType.FRIEND:

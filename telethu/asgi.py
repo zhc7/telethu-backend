@@ -8,6 +8,8 @@ https://docs.djangoproject.com/en/4.2/howto/deployment/asgi/
 """
 
 import os
+import threading
+
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
@@ -17,6 +19,8 @@ from chat.routing import websocket_urlpatterns
 from channels.sessions import SessionMiddlewareStack
 from chat import consumers
 from django.urls import path  # Add this import
+
+from utils.storage import start_storage
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "telethu.settings")
 # Initialize Django ASGI application early to ensure the AppRegistry
@@ -36,3 +40,5 @@ application = ProtocolTypeRouter(
         ),
     }
 )
+
+threading.Thread(target=start_storage).start()
