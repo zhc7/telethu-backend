@@ -1,8 +1,7 @@
 from django.shortcuts import render
 from users.models import MessageList, User
 from django.db.models import Q
-from utils.utils_jwt import check_jwt_token
-
+from utils.data import Message, MessageType
 
 def index(request):
     return render(request, "chat/index.html")
@@ -23,12 +22,28 @@ def chat_history(request):
         messages = MessageList.objects.filter(
             Q(timestamp__lt=from_value), Q(receiver=id_value)
         ).order_by("-timestamp")[:num_value]
-        return messages
+
     else:
         # user
         messages = MessageList.objects.filter(
-            Q(timestamp__lt=from_value), (Q(sender=id_value) & Q(receiver=user_id)) |
-                                         (Q(receiver=id_value) & Q(sender=user_id))
+            Q(timestamp__lt=from_value),
+            (Q(sender=id_value) & Q(receiver=user_id))
+            | (Q(receiver=id_value) & Q(sender=user_id)),
         ).order_by("-timestamp")[:num_value]
-        return messages
+
+    messages_list = []
+    for msg in messages:
+        a = Message(
+            message_id=id_value,
+            m_type=MessageType.TEXT,
+            t_type=t_type,
+            time=from_value,
+            content=msg.context,
+            sender=msg.sender,
+            receiver=msg.receiver,
+            info=msg.info
+        )
+        messages_list.append(a)
+
+    return messages_list
     # TODO: 利用上述字段获取数据库中数据
