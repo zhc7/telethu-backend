@@ -1,11 +1,16 @@
 import json
-import pika
 import aio_pika
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from utils.data import MessageType, TargetType, Message, ContactsData, UserData, GroupData
-from permanent_storage import permanent_storage
+from utils.data import (
+    MessageType,
+    TargetType,
+    Message,
+    ContactsData,
+    UserData,
+    GroupData,
+)
 from users.models import Friendship, GroupList, User, MessageList
 from utils.uid import globalIdMaker, globalMessageIdMaker
 
@@ -20,7 +25,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.group_list: list[int] = []
         self.group_members = None
         self.group_names = None
-        self.channel = None
+        self.storage_exchange = None
+        self.queue = None
 
     async def connect(self):
         # 建立 WebSocket 连接
@@ -30,15 +36,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print("user id we get in connect is: ", self.user_id)
         # TODO: 建立一个全新的队列以及与它配套的 exchange，在 permanent_storage 当中进行接收
         # 和 相应的队列
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host="localhost")
-        )
-        channel = connection.channel()
+        self.rabbitmq_connection = await aio_pika.connect_robust("amqp://localhost")
+        channel = await self.rabbitmq_connection.channel()
         # 建立 exchange
-        channel.exchange_declare(exchange="storage", exchange_type="direct")
-        self.channel = channel
-        queue_receive = channel.queue_declare(queue='PermStore')
-
+        exchange = await channel.declare_exchange("storage", type="direct")
+        queue_receive = await channel.declare_queue("PermStore")
+        self.queue = queue_receive
         # 异步启动消息消费
         await self.start_consuming()
         # 发送好友列表
@@ -95,6 +98,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
             friends_info[friend_id] = friend_info
         return friends_info
 
+    def storage_callback(ch, method, properties, body):
+        print(f"Received {body} and will be stored!")
+        message = Message.model_validate_json(body.body.decode())
+        # 将接收到的信息放入数据库
+        mes = MessageList(
+            message_id=message.message_id,
+            m_type=message.m_type,
+            t_type=message.t_type,
+            time=message.time,
+            content=message.content,
+            sender=message.sender,
+            receiver=message.receiver,
+            info=message.info,
+        )
+        mes.save()
+
+    async def permanent_storage(self):
+        await self.queue.bind(self.storage_exchange, routing_key="PermStorage")
+
+        await self.queue.consume(self.storage_callback, no_ack=True)
+
+        await self.storage_start_consuming()
+
     async def send_meta_info(self):
         group_info: dict[int, GroupData] = await self.query_group_info(self.group_list)
         friend_info: dict[int, UserData] = await self.query_friends_info(self.user_id)
@@ -137,6 +163,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await queue_for_group.bind(exchange, routing_key=str(group_id))
         await queue_for_group.consume(self.callback, no_ack=True)
 
+    async def storage_start_consuming(self):
+        # 建立rabbitmq连接
+        self.rabbitmq_connection = await aio_pika.connect_robust("amqp://localhost")
+        channel = await self.rabbitmq_connection.channel()
+
+        # 使用 Exchange 对象来声明交换机
+        exchange_name = "storage"
+        self.public_exchange = await channel.declare_exchange(
+            exchange_name, type="direct"
+        )
+
+        # 建立queue
+        queue_name_receive = "PermStore"
+        # 用户订阅好友的消息
+        queue_receive = await channel.declare_queue(queue_name_receive)
+        await queue_receive.bind(self.storage_exchange)
+        # 消费消息
+        await queue_receive.consume(self.storage_callback, no_ack=True)
+
     async def disconnect(self, close_code):
         try:
             await self.rabbitmq_connection.close()
@@ -145,15 +190,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, _=None):
         # 接收来自前端的消息
-
         message_received = Message.model_validate_json(text_data)
         # TODO: 分配 id
         message_received.message_id = globalMessageIdMaker.get_id()
         # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
-        self.channel.basic_publish(
-            exchange="storage", routing_key="PermStorage", body=message_received
+        message_json = message_received.model_dump_json()
+        await self.storage_exchange.publish(
+            aio_pika.Message(
+                body=message_json.encode(),  # 将消息转换为 bytes
+            ),
+            routing_key="PermStorage",
         )
-        permanent_storage()
+        await self.permanent_storage()
         match message_received.m_type:
             case _ if message_received.m_type < MessageType.FUNCTION:
                 if message_received.t_type == TargetType.FRIEND:
@@ -231,7 +279,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         await self.chat_message(message)
 
     async def send_package_direct(
-            self, message: Message, receiver: str
+        self, message: Message, receiver: str
     ):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
         # 发送消息给rabbitmq
