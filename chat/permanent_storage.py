@@ -1,15 +1,34 @@
-from consumers import Message
-from channels.db import database_sync_to_async  # 引入异步数据库操作
-from channels.generic.websocket import AsyncWebsocketConsumer
-import aio_pika
+import pika
+from users.models import MessageList
 
+def permanent_storage():
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
+    channel = connection.channel()
 
-class PermStore:
-    def __init__(self, *args, **kwargs):
-        self.rabbitmq_connection = None
+    channel.exchange_declare(exchange="storage", exchange_type="direct")
+    queue_receive = channel.queue_declare(queue="PermStore")
 
-    async def receive(self):
-        self.rabbitmq_connection = await aio_pika.connect_robust("amqp://localhost")
-        channel = await self.rabbitmq_connection.channel()
-        await channel.declare_exchange("storage", type="direct")
-        queue_receive = await channel.declare_queue("permanent_storage")
+    channel.queue_bind(
+        exchange="storage", queue=queue_receive, routing_key="PermStorage"
+    )
+
+    def callback(ch, method, properties, body):
+        print(f"Received {body} and will be stored!")
+        # 将接收到的信息放入数据库
+        mes = MessageList(
+            message_id=body.message_id,
+            m_type=body.m_type,
+            t_type=body.t_type,
+            time=body.time,
+            content=body.content,
+            sender=body.sender,
+            receiver=body.receiver,
+            info=body.info
+        )
+        mes.save()
+
+    channel.basic_consume(
+        queue=queue_receive, on_message_callback=callback, auto_ack=True
+    )
+
+    channel.start_consuming()

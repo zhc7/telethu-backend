@@ -1,11 +1,11 @@
 import enum
 import json
-
+import pika
 import aio_pika
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pydantic import BaseModel
-from permanent_storage import PermStore
+from permanent_storage import permanent_storage
 from users.models import Friendship, GroupList, User, MessageList
 from utils.uid import globalIdMaker, globalMessageIdMaker
 
@@ -77,10 +77,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print("user id we get in connect is: ", self.user_id)
         # TODO: 建立一个全新的队列以及与它配套的 exchange，在 permanent_storage 当中进行接收
         # 和 相应的队列
-        channel = await self.rabbitmq_connection.channel()
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host="localhost")
+        )
+        channel = connection.channel()
         # 建立 exchange
-        await channel.declare_exchange("storage", type="direct")
-        queue_receive = await channel.declare_queue("permanent_storage")
+        channel.exchange_declare(exchange="storage", exchange_type="direct")
+        queue_receive = channel.queue_declare(queue='PermStore')
 
         # 异步启动消息消费
         await self.start_consuming()
@@ -193,8 +196,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # TODO: 分配 id
         message_received.message_id = globalMessageIdMaker.get_id()
         # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
-        channel.basic_publish(exchange="storage", routing_key="PermStorage", body=message_received)
-
+        channel.basic_publish(
+            exchange="storage", routing_key="PermStorage", body=message_received
+        )
+        permanent_storage()
         match message_received.m_type:
             case _ if message_received.m_type < MessageType.FUNCTION:
                 if message_received.t_type == TargetType.FRIEND:
