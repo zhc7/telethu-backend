@@ -1,6 +1,7 @@
 import pika
 from users.models import MessageList
 
+
 def permanent_storage():
     connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
     channel = connection.channel()

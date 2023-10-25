@@ -20,6 +20,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.group_list: list[int] = []
         self.group_members = None
         self.group_names = None
+        self.channel = None
 
     async def connect(self):
         # 建立 WebSocket 连接
@@ -35,6 +36,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         channel = connection.channel()
         # 建立 exchange
         channel.exchange_declare(exchange="storage", exchange_type="direct")
+        self.channel = channel
         queue_receive = channel.queue_declare(queue='PermStore')
 
         # 异步启动消息消费
@@ -143,12 +145,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, _=None):
         # 接收来自前端的消息
-        channel = await self.rabbitmq_connection.channel()
+
         message_received = Message.model_validate_json(text_data)
         # TODO: 分配 id
         message_received.message_id = globalMessageIdMaker.get_id()
         # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
-        channel.basic_publish(
+        self.channel.basic_publish(
             exchange="storage", routing_key="PermStorage", body=message_received
         )
         permanent_storage()
