@@ -1,4 +1,5 @@
 import json
+import time
 
 import pika
 
@@ -28,7 +29,13 @@ def storage_callback(ch, method, properties, body):
 
 
 def start_storage():
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
+    while True:
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
+            break
+        except pika.exceptions.AMQPConnectionError:
+            print("storage connection failed, retrying...")
+            time.sleep(1)
     channel = connection.channel()
     channel.queue_declare(queue="PermStore")
     channel.basic_consume(queue="PermStore", on_message_callback=storage_callback)
