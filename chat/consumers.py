@@ -75,6 +75,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 获取当前用户
         self.user_id = self.scope["user_id"]
         print("user id we get in connect is: ", self.user_id)
+        # TODO: 建立一个全新的队列以及与它配套的 exchange，在 permanent_storage 当中进行接收
+        # 建立 exchange 和 相应的队列
+
+
         # 异步启动消息消费
         await self.start_consuming()
         # 发送好友列表
@@ -182,10 +186,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data=None, _=None):
         # 接收来自前端的消息
         channel = await self.rabbitmq_connection.channel()
-        queue_permanent_storage = await channel.declare_queue("queue_permanent_storage")
         message_received = Message.model_validate_json(text_data)
         # TODO: 分配 id
         message_received.message_id = globalMessageIdMaker.get_id()
+        # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
+
         match message_received.m_type:
             case _ if message_received.m_type < MessageType.FUNCTION:
                 if message_received.t_type == TargetType.FRIEND:
@@ -196,7 +201,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.create_group(message_received)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
                 await self.add_group_member(message_received)
-        await perm_store(message_received)
+
 
     async def chat_message(self, message_sent: Message):
         # 处理来自rabbitmq队列的消息发送消息给前端
