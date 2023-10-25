@@ -21,6 +21,7 @@ from chat import consumers
 from django.urls import path  # Add this import
 
 from utils.storage import start_storage
+from utils.uid import globalIdMaker, globalMessageIdMaker
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "telethu.settings")
 # Initialize Django ASGI application early to ensure the AppRegistry
@@ -41,4 +42,6 @@ application = ProtocolTypeRouter(
     }
 )
 
+globalIdMaker.late_init()
+globalMessageIdMaker.late_init()
 threading.Thread(target=start_storage).start()

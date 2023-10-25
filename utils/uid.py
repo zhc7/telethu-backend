@@ -5,6 +5,9 @@ from users.models import User, GroupList, MessageList
 class IdMaker:
     def __init__(self):
         self.lock = Lock()
+        self.id = None
+
+    def late_init(self):
         # 查找当前数据库中最大的 id，包括group_id和user_id
         max_id = max(User.objects.all().values_list('id', flat=True) or [0])
         if max_id is None:
@@ -23,10 +26,14 @@ class IdMaker:
 # 使用globalIdMaker进行全局id生成，控制id的唯一性
 globalIdMaker = IdMaker()
 
+
 # TODO: 为所有的消息做一个上面的 id_maker
 class MessageIdMaker:
     def __init__(self):
+        self.id = None
         self.lock = Lock()
+
+    def late_init(self):
         # 查找当前数据库中最大的 id，包括group_id和user_id
         max_id = max(MessageList.objects.all().values_list('message_id', flat=True) or [0])
         if max_id is None:
