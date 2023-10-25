@@ -5,7 +5,7 @@ import aio_pika
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pydantic import BaseModel
-from permanent_storage import perm_store
+from permanent_storage import PermStore
 from users.models import Friendship, GroupList, User, MessageList
 from utils.uid import globalIdMaker, globalMessageIdMaker
 
@@ -76,8 +76,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.user_id = self.scope["user_id"]
         print("user id we get in connect is: ", self.user_id)
         # TODO: 建立一个全新的队列以及与它配套的 exchange，在 permanent_storage 当中进行接收
-        # 建立 exchange 和 相应的队列
-
+        # 和 相应的队列
+        channel = await self.rabbitmq_connection.channel()
+        # 建立 exchange
+        await channel.declare_exchange("storage", type="direct")
+        queue_receive = await channel.declare_queue("permanent_storage")
 
         # 异步启动消息消费
         await self.start_consuming()
@@ -190,6 +193,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # TODO: 分配 id
         message_received.message_id = globalMessageIdMaker.get_id()
         # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
+        channel.basic_publish(exchange="storage", routing_key="PermStorage", body=message_received)
 
         match message_received.m_type:
             case _ if message_received.m_type < MessageType.FUNCTION:
@@ -201,7 +205,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.create_group(message_received)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
                 await self.add_group_member(message_received)
-
 
     async def chat_message(self, message_sent: Message):
         # 处理来自rabbitmq队列的消息发送消息给前端
