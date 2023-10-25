@@ -245,6 +245,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_name = message.info
         group_members = message.content
         group = await self.build_group(group_name, group_members)
+        message.receiver = group.group_id
         # 建立群聊专用交换机
         exchange_name = "group_" + str(group.group_id)
         channel = await self.rabbitmq_connection.channel()
