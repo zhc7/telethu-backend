@@ -393,7 +393,7 @@ def get_friend_list(req: HttpRequest):
         "friends": [
             {
                 "id": friend.id,
-                "username": friend.username,
+                "name": friend.username,
                 "avatar": friend.avatar,
             }
             for friend in friends
@@ -424,7 +424,7 @@ def get_apply_list(req: HttpRequest):
         "friends": [
             {
                 "id": friend.id,
-                "username": friend.username,
+                "name": friend.username,
                 "avatar": friend.avatar,
             }
             for friend in friends
@@ -455,7 +455,7 @@ def get_you_apply_list(req: HttpRequest):
         "friends": [
             {
                 "id": friend.id,
-                "username": friend.username,
+                "name": friend.username,
                 "avatar": friend.avatar,
             }
             for friend in friends
