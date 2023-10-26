@@ -1,10 +1,11 @@
-from django.shortcuts import render
-from users.models import MessageList, User
+import json
+
 from django.db.models import Q
-from utils.data import Message, MessageType
-from datetime import datetime
-from decimal import Decimal  # 用于处理 Decimal 类型的数据
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
+from django.shortcuts import render
+
+from users.models import MessageList
+from utils.data import Message
 
 
 def index(request):
@@ -53,17 +54,13 @@ def chat_history(request):
             m_type=msg.t_type,
             t_type=msg.t_type,
             time=msg.time,
-            content=str(msg.content),
+            content=json.loads(msg.content),
             sender=msg.sender,
             receiver=msg.receiver,
             info=msg.info,
         )
-        print("a.content: ", a.content)
         messages_list.append(a.model_dump())
     print("ready!")
     print("messages_list: ", messages_list)
-    for message in messages_list:
-        message["content"] = message["content"].strip('"')
-    message_list = {"message_you_get": messages_list}
-    return JsonResponse(message_list)
+    return JsonResponse(messages_list)
     # TODO: 利用上述字段获取数据库中数据
