@@ -151,6 +151,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data=None, _=None):
         # 接收来自前端的消息
         message_received = Message.model_validate_json(text_data)
+        # 设置
+        message_received.sender = self.user_id
         # TODO: 分配 id
         message_received.message_id = globalMessageIdMaker.get_id()
         # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
