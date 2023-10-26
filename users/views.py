@@ -4,11 +4,13 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from users.models import User, Friendship
+from utils.data import UserData
 from utils.session import SessionData
-from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token, check_jwt_token
+from utils.uid import globalIdMaker
+from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from utils.utils_require import check_require, CheckRequire, require
-from utils.uid import globalIdMaker
+
 
 # Create your views here.
 @CheckRequire
@@ -27,7 +29,6 @@ def login(req: HttpRequest):
     userEmail = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
-
 
     # 检查用户名是否存在
     if not User.objects.filter(userEmail=userEmail).exists():
@@ -61,8 +62,9 @@ def login(req: HttpRequest):
     # 返回token, 以及通过 is_login 判断这是登录请求
     response_data = {
         "token": token,
-        "user_id": user.id,
-        "UserName": user.username,
+        "user": UserData(
+            id=user.id, name=user.username, avatar=user.avatar, email=user.userEmail
+        ).model_dump()
     }
     return request_success(response_data)
 
@@ -143,7 +145,7 @@ def register(req: HttpRequest):
 
     # 利用 SHA256 算法对新建用户的密码进行 5 次加密
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
-    user = User(id = globalIdMaker.get_id() ,username=username, password=hashed_password, userEmail=userEmail)
+    user = User(id=globalIdMaker.get_id(), username=username, password=hashed_password, userEmail=userEmail)
     user.save()
     return request_success()
 
@@ -391,11 +393,12 @@ def get_friend_list(req: HttpRequest):
     # 返回friend列表,包括friend的id,username,avatar
     response_data = {
         "friends": [
-            {
-                "id": friend.id,
-                "name": friend.username,
-                "avatar": friend.avatar,
-            }
+            UserData(
+                id=friend.id,
+                name=friend.username,
+                avatar=friend.avatar,
+                email=friend.userEmail,
+            ).model_dump()
             for friend in friends
         ]
     }
@@ -422,11 +425,12 @@ def get_apply_list(req: HttpRequest):
     # 返回friend列表,包括friend的id,username,avatar
     response_data = {
         "friends": [
-            {
-                "id": friend.id,
-                "name": friend.username,
-                "avatar": friend.avatar,
-            }
+            UserData(
+                id=friend.id,
+                name=friend.username,
+                avatar=friend.avatar,
+                email=friend.userEmail,
+            ).model_dump()
             for friend in friends
         ]
     }
@@ -453,11 +457,12 @@ def get_you_apply_list(req: HttpRequest):
     # 返回friend列表,包括friend的id,username,avatar
     response_data = {
         "friends": [
-            {
-                "id": friend.id,
-                "name": friend.username,
-                "avatar": friend.avatar,
-            }
+            UserData(
+                id=friend.id,
+                name=friend.username,
+                avatar=friend.avatar,
+                email=friend.userEmail,
+            ).model_dump()
             for friend in friends
         ]
     }
