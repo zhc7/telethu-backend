@@ -34,7 +34,7 @@ def chat_history(request):
     if t_type == 1:
         # group
         messages = MessageList.objects.filter(
-            time__gt=float(from_value), receiver=id_value
+            time__gt=float(from_value), receiver=id_value, t_type=t_type
         ).order_by("-time")[:num_value]
 
     else:
@@ -44,6 +44,7 @@ def chat_history(request):
             Q((Q(sender=id_value) & Q(receiver=user_id)))
             | Q((Q(receiver=id_value) & Q(sender=user_id))),
             time__gt=float(from_value),
+            t_type=t_type
         ).order_by("-time")[:num_value]
         print("messages: ", messages)
     messages_list = []
@@ -51,7 +52,7 @@ def chat_history(request):
         print("msg.content: ", msg.content)
         a = Message(
             message_id=msg.message_id,
-            m_type=msg.t_type,
+            m_type=msg.m_type,
             t_type=msg.t_type,
             time=msg.time,
             content=json.loads(msg.content),
