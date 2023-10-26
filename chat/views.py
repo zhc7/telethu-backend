@@ -4,7 +4,7 @@ from django.db.models import Q
 from utils.data import Message, MessageType
 from datetime import datetime
 from decimal import Decimal  # 用于处理 Decimal 类型的数据
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpResponse, JsonResponse
 
 
 def index(request):
@@ -47,19 +47,23 @@ def chat_history(request):
         print("messages: ", messages)
     messages_list = []
     for msg in messages:
+        print("msg.content: ", msg.content)
         a = Message(
             message_id=msg.message_id,
             m_type=msg.t_type,
             t_type=msg.t_type,
             time=msg.time,
-            content=msg.content,
+            content=str(msg.content),
             sender=msg.sender,
             receiver=msg.receiver,
             info=msg.info,
         )
+        print("a.content: ", a.content)
         messages_list.append(a.model_dump())
     print("ready!")
     print("messages_list: ", messages_list)
+    for message in messages_list:
+        message["content"] = message["content"].strip('"')
     message_list = {"message_you_get": messages_list}
     return JsonResponse(message_list)
     # TODO: 利用上述字段获取数据库中数据
