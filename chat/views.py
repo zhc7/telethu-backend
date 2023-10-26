@@ -62,5 +62,5 @@ def chat_history(request):
         messages_list.append(a.model_dump())
     print("ready!")
     print("messages_list: ", messages_list)
-    return JsonResponse(messages_list)
+    return JsonResponse(messages_list, safe=False)
     # TODO: 利用上述字段获取数据库中数据
