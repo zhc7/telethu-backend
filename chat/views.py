@@ -60,6 +60,7 @@ def chat_history(request):
             info=msg.info,
         )
         messages_list.append(a.model_dump())
+    messages_list.reverse()
     print("ready!")
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
