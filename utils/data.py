@@ -41,7 +41,7 @@ class GroupData(ContactsData):
 
 
 class Message(BaseModel):
-    message_id: int
+    message_id: int = None
     m_type: MessageType = MessageType.TEXT
     t_type: TargetType = TargetType.OTHER
     time: float

@@ -40,6 +40,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.rabbitmq_connection = await aio_pika.connect_robust("amqp://localhost")
         self.channel = await self.rabbitmq_connection.channel()
         # 异步启动消息消费
+        print("connected!")
         await self.start_consuming()
         await self.storage_start_consuming()
         # 发送好友列表
