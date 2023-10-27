@@ -74,17 +74,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def query_friends_info(self, user_id) -> dict[int, UserData]:
         # 这个方法执行同步数据库查询
-        friends = Friendship.objects.filter(user1=user_id)
-        friends = friends | Friendship.objects.filter(user2=user_id)
-        friends_id = []
-        for friend in friends:
-            if friend.state == 1:
-                if str(friend.user1.id) == str(user_id):
-                    friend_id = friend.user2.id
-                else:
-                    friend_id = friend.user1.id
-                if friend_id not in friends_id:
-                    friends_id.append(friend_id)
+        friends_id = self._query_friends(user_id)
         friends_info = {}
         for friend_id in friends_id:
             friend = User.objects.filter(id=friend_id).first()
@@ -181,8 +171,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return  # 不给自己发消息
         await self.send(text_data=message_sent.model_dump_json())
 
-    @database_sync_to_async
-    def query_friends(self, user_id):
+    @staticmethod
+    def _query_friends(user_id):
         # 这个方法执行同步数据库查询
         friends = Friendship.objects.filter(user1=user_id)
         friends = friends | Friendship.objects.filter(user2=user_id)
@@ -196,6 +186,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 if friend_id not in friends_id:
                     friends_id.append(friend_id)
         return friends_id
+
+    @database_sync_to_async
+    def query_friends(self, user_id):
+        return self._query_friends(user_id)
 
     @database_sync_to_async
     def query_group(self):
