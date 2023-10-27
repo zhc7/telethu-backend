@@ -19,7 +19,7 @@ def room(request, room_name):
 
 def chat_history(request):
     print("You are getting chat_history!")
-    from_value = float(request.GET.get("from", ""))
+    from_value = int(request.GET.get("from", ""))
     print("1")
     num_value = int(request.GET.get("num", ""))
     id_value = int(request.GET.get("id", ""))
@@ -34,7 +34,7 @@ def chat_history(request):
     if t_type == 1:
         # group
         messages = MessageList.objects.filter(
-            time__lt=float(from_value), receiver=id_value, t_type=t_type
+            time__lt=from_value, receiver=id_value, t_type=t_type
         ).order_by("-time")[:num_value]
 
     else:
@@ -43,7 +43,7 @@ def chat_history(request):
         messages = MessageList.objects.filter(
             Q((Q(sender=id_value) & Q(receiver=user_id)))
             | Q((Q(receiver=id_value) & Q(sender=user_id))),
-            time__lt=float(from_value),
+            time__lt=from_value,
             t_type=t_type
         ).order_by("-time")[:num_value]
         print("messages: ", messages)

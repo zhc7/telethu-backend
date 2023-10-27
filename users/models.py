@@ -67,7 +67,7 @@ class MessageList(models.Model):
     message_id = models.AutoField(primary_key=True)
     m_type = models.IntegerField(blank=False, null=False)
     t_type = models.IntegerField(blank=False, null=False)
-    time = models.FloatField(blank=False, null=False)
+    time = models.BigIntegerField(blank=False, null=False)
     content = models.TextField()
     sender = models.IntegerField(blank=False, null=False)
     receiver = models.IntegerField(blank=False, null=False)
