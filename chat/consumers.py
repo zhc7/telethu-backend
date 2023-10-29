@@ -21,7 +21,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         super().__init__(*args, **kwargs)
         self.user_id = None
         self.rabbitmq_connection = None
-        self.public_exchange = None
+        self.self_exchange = None
         self.friend_list: list[int] = []
         self.group_list: list[int] = []
         self.group_members = None
@@ -98,9 +98,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def start_consuming(self):
         # 使用 Exchange 对象来声明交换机
-        exchange_name = "public_exchange"
-        self.public_exchange = await self.channel.declare_exchange(
-            exchange_name, type="direct"
+        exchange_name = "user_" + str(self.user_id) # name it after user_id
+        self.self_exchange = await self.channel.declare_exchange( # use fanout exchange to broadcast to all user's queue
+            exchange_name, type="fanout"
         )
 
         # 获取好友列表
@@ -112,18 +112,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         queue_name_receive = str(self.user_id)
         # 用户订阅好友的消息
         queue_receive = await self.channel.declare_queue(queue_name_receive)
-        await queue_receive.bind(self.public_exchange)
+        await queue_receive.bind(self.self_exchange)
         # 消费消息
         await queue_receive.consume(self.callback, no_ack=True)
-
-        # 用户订阅群聊的消息
-        queue_for_group = await self.channel.declare_queue("group_" + str(self.user_id))
-        for group_id in self.group_list:
-            exchange = await self.channel.declare_exchange(
-                "group_" + str(group_id), type="fanout"
-            )
-            await queue_for_group.bind(exchange, routing_key=str(group_id))
-        await queue_for_group.consume(self.callback, no_ack=True)
 
     async def storage_start_consuming(self):
         # 建立 exchange
@@ -141,7 +132,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data=None, _=None):
         # 接收来自前端的消息
         message_received = Message.model_validate_json(text_data)
-        # 设置
+        # 设置user_id
         message_received.sender = self.user_id
         # TODO: 分配 id
         message_received.message_id = globalMessageIdMaker.get_id()
@@ -166,10 +157,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.add_group_member(message_received)
 
     async def chat_message(self, message_sent: Message):
-        # 处理来自rabbitmq队列的消息发送消息给前端
-        if str(message_sent.sender) == str(self.user_id):
-            return  # 不给自己发消息
-        await self.send(text_data=message_sent.model_dump_json())
+        await self.send(text_data=message_sent.model_dump_json()) # send message to front no matter if it is user own message
 
     @staticmethod
     def _query_friends(user_id):
@@ -239,11 +227,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
     ):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
         # 发送消息给rabbitmq
-        await self.public_exchange.publish(
+        exchange_name = "user_" + receiver
+        aim_exchange = await self.channel.declare_exchange(
+            exchange_name, type="fanout"
+        )
+        await aim_exchange.publish(
             aio_pika.Message(
                 body=message_json.encode(),  # 将消息转换为 bytes
             ),
-            routing_key=receiver,  # 不指定 routing_key
+            routing_key="", # do not specify routing key
         )
 
     async def send_message_friend(self, message: Message):
@@ -261,19 +253,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return group
 
     async def create_group(self, message: Message):
+        # 确保group_members是list[int],以后搬到鉴权里面
+        if type(message.content.members) != list:
+            return None
+        if len(message.content.members) == 0 & type(message.content.members[0]) != int:
+            return None
         # 建群
-        if self.user_id not in message.content:
-            message.content = [self.user_id] + message.content
-        group_name = message.info
-        group_members = message.content
+        if self.user_id not in message.content.members:
+            message.content.members = [self.user_id] + message.content.members
+        group_name = message.content.name
+        group_members = message.content.members
+
         group = await self.build_group(group_name, group_members)
-        message.receiver = group.group_id
-        # 建立群聊专用交换机
-        exchange_name = "group_" + str(group.group_id)
-        channel = await self.rabbitmq_connection.channel()
-        await channel.declare_exchange(exchange_name, type="fanout")
+        message.content.id = group.group_id # set receiver to group id
         # 通知每个成员
-        message.sender = group.group_id
         for member in group_members:
             await self.send_package_direct(message, str(member))
 
@@ -294,9 +287,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def add_group_member(self, message: Message):
         # 数据库加好友了，
-        group_id = message.content
+        group_id = message.content.id
         add_member = message.receiver
         group_member = await self.add_member(group_id, add_member)
+        message.content.members.append(add_member)
         # 通知每个成员
         if group_member is None:
             return
@@ -304,34 +298,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_package_direct(message, str(member))
 
     async def send_message_group(self, message: Message):
-        # 如果是自己的群，直接发送消息
-        message_json = message.model_dump_json()
         # 找到合适的exchange
-        exchange_name = "group_" + str(message.receiver)
-        exchange = await self.channel.declare_exchange(exchange_name, type="fanout")
-        await exchange.publish(
-            aio_pika.Message(
-                body=message_json.encode(),  # 将消息转换为 bytes
-            ),
-            routing_key="",  # 不指定 routing_key
-        )
+        group_member = self.group_members[message.receiver] # receiver is group id
+        for member in group_member:
+            await self.send_package_direct(message, str(member))
+
 
     async def get_create_massage(self, message: Message):
-        exchange_name = "group_" + str(message.sender)
-        exchange = await self.channel.declare_exchange(exchange_name, type="fanout")
-        queue_name_receive = "group_" + str(self.user_id)
-        queue_receive = await self.channel.declare_queue(queue_name_receive)
-        await queue_receive.bind(exchange)
-        await queue_receive.consume(self.callback, no_ack=True)
         # 更新自己的群聊列表
-        group_id = message.sender  # 这个是群聊的id
+        group_id = message.content.id # 这个是群聊的id
         if group_id not in self.group_list:
             self.group_list.append(group_id)
             self.group_members[group_id] = []
-            self.group_names[group_id] = message.info
-            self.group_members[group_id] = message.content
+            self.group_names[group_id] = message.content.name
+            self.group_members[group_id] = message.content.members
         else:
-            self.group_members[group_id].append(message.content)
-            self.group_names[group_id] = message.info
+            self.group_members[group_id].append(message.content.members)
+            self.group_names[group_id] = message.content.name
             # 发送消息给前端
         await self.chat_message(message)

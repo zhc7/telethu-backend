@@ -44,7 +44,7 @@ class UserData(ContactsData):
 
 
 class GroupData(ContactsData):
-    members: list[UserData]
+    members: list[UserData|int]
     category: str = "group"
 
 
