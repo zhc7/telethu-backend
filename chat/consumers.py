@@ -174,6 +174,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.delete_friend(message_received)
             case MessageType.FUN_SEARCH_USER:
                 await self.search_user(message_received)
+            case MessageType.FUN_SEND_META:
+                await self.send_meta_info()
     async def chat_message(self, message_sent: Message):
         await self.send(
             text_data=message_sent.model_dump_json()
