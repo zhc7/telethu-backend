@@ -32,7 +32,7 @@ class TargetType(enum.IntEnum):
 
 
 class ContactsData(BaseModel):
-    id: int
+    id: int | None = None
     name: str
     avatar: str
     category: str

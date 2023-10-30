@@ -313,7 +313,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.group_names[group_id] = message.content.name
             self.group_members[group_id] = message.content.members
         else:
-            self.group_members[group_id].append(message.content.members)
+            for member in message.content.members:
+                if member not in self.group_members[group_id]:
+                    self.group_members[group_id].append(member)
             self.group_names[group_id] = message.content.name
             # 发送消息给前端
         await self.chat_message(message)
