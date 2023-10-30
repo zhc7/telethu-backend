@@ -14,6 +14,7 @@ from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 from telethu.middleware.connect import QueryAuthMiddleware
+from telethu.middleware.browser import BrowserMiddleware
 from channels.security.websocket import AllowedHostsOriginValidator
 from chat.routing import websocket_urlpatterns
 from channels.sessions import SessionMiddlewareStack
@@ -35,7 +36,7 @@ application = ProtocolTypeRouter(
         "http": get_asgi_application(),  # add when create the chat app.I don't know if I need to delete the column below.
         # "http": django_asgi_app,
         "websocket": AllowedHostsOriginValidator(
-            AuthMiddlewareStack(QueryAuthMiddleware(URLRouter(websocket_urlpatterns))),
+            AuthMiddlewareStack(BrowserMiddleware(QueryAuthMiddleware(URLRouter(websocket_urlpatterns)))),
             # 这里的写法基于这样的事实：我们希望发送的 WebSocket 请求通过我们自己编写的 QueryAuthMiddleware；
             # 同时外面需要套上 AuthMiddlewareStack 才可以在 Scope 当中获取 session 字段
         ),
