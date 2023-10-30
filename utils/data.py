@@ -52,7 +52,7 @@ class Message(BaseModel):
     message_id: int | str = None    # str if id is temporary
     m_type: MessageType = MessageType.TEXT
     t_type: TargetType = TargetType.OTHER
-    time: int = None  # write by backend
+    time: float = None  # write by backend
     content: str | list | int | GroupData | UserData  # 如果是消息，content 是 str，如果是函数，content 是 list,如果是群加人，这个放群id
     sender: int = None  # 如果是消息，sender 是发送者的 id，如果是函数，sender 是函数的发起者的 id。如果是群加人，这个放拉人的人
     receiver: int | None = None  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。如果是群加人，这个放被拉的人
@@ -62,3 +62,16 @@ class Message(BaseModel):
 class Ack(BaseModel):
     message_id: int  # real unique id
     reference: str | None = None  # temporary id
+
+
+class FriendType(enum.IntEnum):
+    user_equal_friend = 0
+    already_friend = 1
+    already_send_apply = 2
+    already_receive_apply = 3
+    already_block_friend = 4
+    already_been_block = 5
+    already_reject_friend = 6
+    already_been_reject = 7
+    relationship_not_exist = 8
+    friend_not_exist = 9

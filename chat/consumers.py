@@ -12,6 +12,7 @@ from utils.data import (
     ContactsData,
     UserData,
     GroupData,
+    FriendType,
 )
 from utils.uid import globalIdMaker, globalMessageIdMaker
 
@@ -98,9 +99,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def start_consuming(self):
         # 使用 Exchange 对象来声明交换机
-        exchange_name = "user_" + str(self.user_id) # name it after user_id
-        self.self_exchange = await self.channel.declare_exchange( # use fanout exchange to broadcast to all user's queue
-            exchange_name, type="fanout"
+        exchange_name = "user_" + str(self.user_id)  # name it after user_id
+        self.self_exchange = await self.channel.declare_exchange(
+            # use fanout exchange to broadcast to all user's queue
+            exchange_name,
+            type="fanout",
         )
 
         # 获取好友列表
@@ -118,7 +121,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def storage_start_consuming(self):
         # 建立 exchange
-        self.storage_exchange = await self.channel.declare_exchange("storage", type="fanout")
+        self.storage_exchange = await self.channel.declare_exchange(
+            "storage", type="fanout"
+        )
         storage_queue = await self.channel.declare_queue("PermStore")
 
         await storage_queue.bind(self.storage_exchange)
@@ -155,9 +160,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.create_group(message_received)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
                 await self.add_group_member(message_received)
+            case MessageType.FUNC_APPLY_FRIEND:
+                await self.apply_friend(message_received)
 
     async def chat_message(self, message_sent: Message):
-        await self.send(text_data=message_sent.model_dump_json()) # send message to front no matter if it is user own message
+        await self.send(
+            text_data=message_sent.model_dump_json()
+        )  # send message to front no matter if it is user own message
 
     @staticmethod
     def _query_friends(user_id):
@@ -221,21 +230,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         self.group_members[group_id].append(message.receiver)
                         # 发送消息给前端
                         await self.chat_message(message)
-
+            case MessageType.FUNC_APPLY_FRIEND:
+                await self.chat_message(message)
     async def send_package_direct(
-            self, message: Message, receiver: str
+        self, message: Message, receiver: str
     ):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
         # 发送消息给rabbitmq
         exchange_name = "user_" + receiver
-        aim_exchange = await self.channel.declare_exchange(
-            exchange_name, type="fanout"
-        )
+        aim_exchange = await self.channel.declare_exchange(exchange_name, type="fanout")
         await aim_exchange.publish(
             aio_pika.Message(
                 body=message_json.encode(),  # 将消息转换为 bytes
             ),
-            routing_key="", # do not specify routing key
+            routing_key="",  # do not specify routing key
         )
 
     async def send_message_friend(self, message: Message):
@@ -265,7 +273,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_members = message.content.members
 
         group = await self.build_group(group_name, group_members)
-        message.content.id = group.group_id # set receiver to group id
+        message.content.id = group.group_id  # set receiver to group id
         # 通知每个成员
         for member in group_members:
             await self.send_package_direct(message, str(member))
@@ -299,14 +307,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def send_message_group(self, message: Message):
         # 找到合适的exchange
-        group_member = self.group_members[message.receiver] # receiver is group id
+        group_member = self.group_members[message.receiver]  # receiver is group id
         for member in group_member:
             await self.send_package_direct(message, str(member))
 
-
     async def get_create_massage(self, message: Message):
         # 更新自己的群聊列表
-        group_id = message.content.id # 这个是群聊的id
+        group_id = message.content.id  # 这个是群聊的id
         if group_id not in self.group_list:
             self.group_list.append(group_id)
             self.group_members[group_id] = []
@@ -319,3 +326,77 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.group_names[group_id] = message.content.name
             # 发送消息给前端
         await self.chat_message(message)
+
+    @database_sync_to_async
+    def friendship(self, user_id, friend_id):
+        friendship = None
+        # 排除自我添加
+        if user_id == friend_id:
+            return FriendType.user_equal_friend
+        user = User.objects.filter(id=user_id).first()
+        friend = User.objects.filter(id=friend_id).first()
+        if friend is None:
+            return FriendType.friend_not_exist, "friend_not_exist"
+        # 检查是否已经是好友
+        if user.user1_friendships.filter(user2=friend).exists():
+            friendship = user.user1_friendships.get(user2=friend)
+        elif user.user2_friendships.filter(user1=friend).exists():
+            friendship = user.user2_friendships.get(user1=friend)
+        if friendship is not None:
+            if friendship.state == 1:
+                return FriendType.already_friend, "already_friend"
+            elif friendship.state == 0 and friendship.user1 == user:
+                return FriendType.already_send_apply, "already_send_apply"
+            elif friendship.state == 0 and friendship.user2 == user:
+                return FriendType.already_receive_apply, "already_receive_apply"
+            elif friendship.state == 2 and friendship.user1 == user:
+                return FriendType.already_block_friend, "already_block_friend"
+            elif friendship.state == 2 and friendship.user2 == user:
+                return FriendType.already_been_block, "already_been_block"
+            elif friendship.state == 3 and friendship.user1 == user:
+                return FriendType.already_reject_friend, "already_reject_friend"
+            elif friendship.state == 3 and friendship.user2 == user:
+                return FriendType.already_been_reject, "already_been_reject"
+        else:
+            return FriendType.relationship_not_exist, "relationship_not_exist"
+
+    @database_sync_to_async
+    def friendship_change(self, user_id, friend_id, state):
+        friendship = None
+        # 排除自我添加
+        if user_id == friend_id:
+            return FriendType.user_equal_friend
+        user = User.objects.filter(id=user_id).first()
+        friend = User.objects.filter(id=friend_id).first()
+        # 检查是否已经是好友
+        if user.user1_friendships.filter(user2=friend).exists():
+            friendship = user.user1_friendships.get(user2=friend)
+        elif user.user2_friendships.filter(user1=friend).exists():
+            friendship = user.user2_friendships.get(user1=friend)
+        if friendship is not None:
+            friendship.state = state
+            friendship.user1 = user
+            friendship.user2 = friend
+            friendship.save()
+            return True
+        else:
+            friendship = Friendship.objects.create(
+                user1=user, user2=friend, state=state
+            )
+            friendship.save()
+            return True
+
+    async def apply_friend(self, message: Message):
+        friend_id = message.receiver
+        message.sender = self.user_id
+        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        if (
+            friendship_now == FriendType.relationship_not_exist
+            or friendship_now == FriendType.already_been_reject
+            or friendship_now == FriendType.already_reject_friend
+        ):
+            message.content = "Success"
+            await self.send_package_direct(message, str(friend_id)) # 发送消息给对方
+            await self.friendship_change(self.user_id, friend_id, 0)
+
+        await self.send_package_direct(message, str(self.user_id))
