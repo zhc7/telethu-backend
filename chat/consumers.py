@@ -172,6 +172,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.unblock_friend(message_received)
             case MessageType.FUNC_DEL_FRIEND:
                 await self.delete_friend(message_received)
+            case MessageType.FUN_SEARCH_USER:
+                await self.search_user(message_received)
     async def chat_message(self, message_sent: Message):
         await self.send(
             text_data=message_sent.model_dump_json()
@@ -483,3 +485,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.friendship_change(self.user_id, friend_id, 3)
             self.friend_list.remove(friend_id)
         await self.send_package_direct(message, str(self.user_id))
+
+    @database_sync_to_async
+    def get_user_info(self, user_id, user_email,find_type):
+        if find_type == 1:
+            user = User.objects.filter(id=user_id).first()
+        elif find_type == 2:
+            user = User.objects.filter(userEmail=user_email).first()
+        else:
+            return None
+        return user
+    async def search_user(self, message: Message):
+        find_type = message.t_type
+        user_id = message.receiver
+        user_email = message.content
+        user = await self.get_user_info(user_id, user_email,find_type)
+        if user is None:
+            message.content = "User not found"
+        else:
+            userdata = UserData(
+                id=user.id,
+                name=user.username,
+                avatar=user.avatar,
+                email=user.userEmail,
+            )
+            message.content = userdata
+        await self.chat_message(message)
