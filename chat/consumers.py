@@ -162,6 +162,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.add_group_member(message_received)
             case MessageType.FUNC_APPLY_FRIEND:
                 await self.apply_friend(message_received)
+            case MessageType.FUNC_ACCEPT_FRIEND:
+                await self.accept_friend(message_received)
+            case MessageType.FUNC_REJECT_FRIEND:
+                await self.reject_friend(message_received)
+            case MessageType.FUNC_BlOCK_FRIEND:
+                await self.block_friend(message_received)
 
     async def chat_message(self, message_sent: Message):
         await self.send(
@@ -232,6 +238,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         await self.chat_message(message)
             case MessageType.FUNC_APPLY_FRIEND:
                 await self.chat_message(message)
+            case MessageType.FUNC_ACCEPT_FRIEND:
+                await self.chat_message(message)
+            case MessageType.FUNC_REJECT_FRIEND:
+                await self.chat_message(message)
+            case MessageType.FUNC_BlOCK_FRIEND:
+                await self.chat_message(message)
+
     async def send_package_direct(
         self, message: Message, receiver: str
     ):  # 无论是什么，总会将一个package发送进direct queue
@@ -396,7 +409,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
             or friendship_now == FriendType.already_reject_friend
         ):
             message.content = "Success"
-            await self.send_package_direct(message, str(friend_id)) # 发送消息给对方
+            await self.send_package_direct(message, str(friend_id))  # 发送消息给对方
             await self.friendship_change(self.user_id, friend_id, 0)
 
+        await self.send_package_direct(message, str(self.user_id))
+
+    async def accept_friend(self, message: Message):
+        friend_id = message.receiver
+        message.sender = self.user_id
+        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        if friendship_now == FriendType.already_receive_apply:
+            message.content = "Success"
+            await self.send_package_direct(message, str(friend_id))
+            await self.friendship_change(self.user_id, friend_id, 1)
+        await self.send_package_direct(message, str(self.user_id))
+
+    async def reject_friend(self, message: Message):
+        friend_id = message.receiver
+        message.sender = self.user_id
+        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        if friendship_now == FriendType.already_receive_apply:
+            message.content = "Success"
+            await self.send_package_direct(message, str(friend_id))
+            await self.friendship_change(self.user_id, friend_id, 3)
+        await self.send_package_direct(message, str(self.user_id))
+
+    async def block_friend(self, message: Message):
+        friend_id = message.receiver
+        message.sender = self.user_id
+        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        if (
+            friendship_now == FriendType.already_friend
+            or friendship_now == FriendType.already_receive_apply
+            or friendship_now == FriendType.already_send_apply
+            or friendship_now == FriendType.already_reject_friend
+            or friendship_now == FriendType.already_been_reject
+            or friendship_now == FriendType.already_been_block
+        ):
+            message.content = "Success"
+            await self.send_package_direct(message, str(friend_id))
+            await self.friendship_change(self.user_id, friend_id, 2)
         await self.send_package_direct(message, str(self.user_id))
