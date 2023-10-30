@@ -164,6 +164,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.apply_friend(message_received)
             case MessageType.FUNC_ACCEPT_FRIEND:
                 await self.accept_friend(message_received)
+            case MessageType.FUNC_REJECT_FRIEND:
+                await self.reject_friend(message_received)
     async def chat_message(self, message_sent: Message):
         await self.send(
             text_data=message_sent.model_dump_json()
@@ -234,6 +236,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             case MessageType.FUNC_APPLY_FRIEND:
                 await self.chat_message(message)
             case MessageType.FUNC_ACCEPT_FRIEND:
+                await self.chat_message(message)
+            case MessageType.FUNC_REJECT_FRIEND:
                 await self.chat_message(message)
     async def send_package_direct(
         self, message: Message, receiver: str
@@ -413,4 +417,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))
             await self.friendship_change(self.user_id, friend_id, 1)
+        await self.send_package_direct(message, str(self.user_id))
+
+    async def reject_friend(self, message: Message):
+        friend_id = message.receiver
+        message.sender = self.user_id
+        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        if friendship_now == FriendType.already_receive_apply:
+            message.content = "Success"
+            await self.send_package_direct(message, str(friend_id))
+            await self.friendship_change(self.user_id, friend_id, 3)
         await self.send_package_direct(message, str(self.user_id))
