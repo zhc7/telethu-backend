@@ -68,3 +68,19 @@ class WebSocketSessionData:
             self.scope["session"][user_id_str] = {}  # 上面提到的未初始化情况，需要手动初始化
         self.scope["session"][user_id_str]["last_login"] = last_login
 
+    @property
+    def browser(self):
+        # 首先判断相应的浏览器是否曾经被访问过
+        if not self.scope["session"]["browser"]:
+            # 如果浏览器第一次被访问，还没有加入 browser 的相应字段
+            self.scope["session"]["browser"] = {}
+        return self.scope["session"]["browser"]
+
+    @browser.setter
+    def browser(self, browser):
+        if not self.scope["session"]["browser"]:
+            # 如果浏览器第一次被访问，还没有加入 browser 的相应字段
+            self.scope["session"]["browser"] = browser
+        else:
+            # 表明应该已经不是第一次访问这个浏览器了，那就不用重新设置了
+            pass
