@@ -14,5 +14,6 @@ class BrowserMiddleware:
         session.browser = my_uid
 
     async def __call__(self, scope, receive, send):
+        print("You are in Browser Middleware!!!")
         self.add_browser(scope)
         return await self.app(scope, receive, send)

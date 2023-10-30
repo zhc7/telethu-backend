@@ -78,8 +78,11 @@ class WebSocketSessionData:
 
     @browser.setter
     def browser(self, browser):
-        if not self.scope["session"]["browser"]:
+        session = self.scope["session"]
+        print("session you get is: ", session)
+        if not session.get("browser"):
             # 如果浏览器第一次被访问，还没有加入 browser 的相应字段
+            self.scope["session"]["browser"] = {}
             self.scope["session"]["browser"] = browser
         else:
             # 表明应该已经不是第一次访问这个浏览器了，那就不用重新设置了
