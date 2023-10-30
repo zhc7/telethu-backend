@@ -168,7 +168,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.reject_friend(message_received)
             case MessageType.FUNC_BlOCK_FRIEND:
                 await self.block_friend(message_received)
-
+            case MessageType.FUNC_UNBLOCK_FRIEND:
+                await self.unblock_friend(message_received)
     async def chat_message(self, message_sent: Message):
         await self.send(
             text_data=message_sent.model_dump_json()
@@ -243,6 +244,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             case MessageType.FUNC_REJECT_FRIEND:
                 await self.chat_message(message)
             case MessageType.FUNC_BlOCK_FRIEND:
+                await self.chat_message(message)
+            case MessageType.FUNC_UNBLOCK_FRIEND:
                 await self.chat_message(message)
 
     async def send_package_direct(
@@ -444,9 +447,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             or friendship_now == FriendType.already_send_apply
             or friendship_now == FriendType.already_reject_friend
             or friendship_now == FriendType.already_been_reject
-            or friendship_now == FriendType.already_been_block
         ):
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))
             await self.friendship_change(self.user_id, friend_id, 2)
+        await self.send_package_direct(message, str(self.user_id))
+
+
+    async def unblock_friend(self, message: Message):
+        friend_id = message.receiver
+        message.sender = self.user_id
+        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        if friendship_now == FriendType.already_block_friend:
+            message.content = "Success"
+            await self.send_package_direct(message, str(friend_id))
+            await self.friendship_change(self.user_id, friend_id, 3)
         await self.send_package_direct(message, str(self.user_id))

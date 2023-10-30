@@ -23,7 +23,7 @@ class MessageType(enum.IntEnum):
     FUNC_DEL_FRIEND = 14
     FUNC_READ_MSG = 15
     FUNC_UPDATE_SETTINGS = 16   # includes updating ANY user settings (e.g. mute contact / change email)
-
+    FUNC_UNBLOCK_FRIEND = 17
 
 class TargetType(enum.IntEnum):
     FRIEND = 0
