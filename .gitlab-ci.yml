@@ -16,7 +16,7 @@ build:
   only:
     - main
 
-test:
+unit-test:
   stage: test
   after_script:
     - SUFFIX=$RANDOM
