@@ -23,6 +23,7 @@ from utils.uid import globalIdMaker, globalMessageIdMaker
 class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.retry = 5
         self.timeout = 1
         self.user_id = None
         self.rabbitmq_connection = None
@@ -253,11 +254,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         ack_callback = body.channel.basic_ack(delivery_tag=body.delivery_tag)
 
-        async def push_message():
+        async def push_message(retry=self.retry):
+            if retry == 0:
+                return
             await self.chat_message(message)
             print("pushed", message.model_dump())
             await self.ack_manager.manage(
-                message.message_id, ack_callback, push_message(), self.timeout
+                message.message_id, ack_callback, push_message(retry - 1), self.timeout
             )
 
         await push_message()
