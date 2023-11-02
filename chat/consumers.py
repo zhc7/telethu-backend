@@ -1,10 +1,12 @@
 import json
 
 import aio_pika
+from aio_pika.abc import AbstractIncomingMessage
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from users.models import Friendship, GroupList, User
+from utils.ack_manager import AckManager
 from utils.data import (
     MessageType,
     TargetType,
@@ -13,6 +15,7 @@ from utils.data import (
     UserData,
     GroupData,
     FriendType,
+    Ack,
 )
 from utils.uid import globalIdMaker, globalMessageIdMaker
 
@@ -20,6 +23,7 @@ from utils.uid import globalIdMaker, globalMessageIdMaker
 class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.timeout = 1
         self.user_id = None
         self.rabbitmq_connection = None
         self.self_exchange = None
@@ -29,6 +33,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.group_names = None
         self.channel: aio_pika.Channel | None = None
         self.storage_exchange = None
+        self.ack_manager = AckManager()
+        self.received = {}
 
     async def connect(self):
         # 建立 WebSocket 连接
@@ -117,7 +123,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         queue_receive = await self.channel.declare_queue(queue_name_receive)
         await queue_receive.bind(self.self_exchange)
         # 消费消息
-        await queue_receive.consume(self.callback, no_ack=True)
+        await queue_receive.consume(self.callback)
 
     async def storage_start_consuming(self):
         # 建立 exchange
@@ -136,10 +142,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, _=None):
         # 接收来自前端的消息
-        message_received = Message.model_validate_json(text_data)
+        dict_data = json.loads(text_data)
+        print(dict_data)
+        if "m_type" not in dict_data:
+            ack_received = Ack.model_validate(dict_data)
+            self.ack_manager.acknowledge(ack_received.message_id)
+            return
+        message_received = Message.model_validate(dict_data)
+        print(message_received.model_dump())
         # 设置user_id
         message_received.sender = self.user_id
-        # TODO: 分配 id
+        tmp_id = message_received.message_id
+        print("received tmp_id", tmp_id)
+        if tmp_id in self.received:
+            await self.send(Ack(
+                message_id=self.received[tmp_id].message_id,
+                reference=tmp_id,
+            ).model_dump_json())
+            return
         message_received.message_id = globalMessageIdMaker.get_id()
         # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
         message_json = message_received.model_dump_json()
@@ -176,6 +196,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.search_user(message_received)
             case MessageType.FUN_SEND_META:
                 await self.send_meta_info()
+        self.received[tmp_id] = message_received
+        await self.send(
+            Ack(
+                message_id=message_received.message_id,
+                reference=tmp_id,
+            ).model_dump_json()
+        )
+
     async def chat_message(self, message_sent: Message):
         await self.send(
             text_data=message_sent.model_dump_json()
@@ -218,17 +246,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
             group_names[group.group_id] = group.group_name
         return group_id, group_members, group_names
 
-    async def callback(self, body):
+    async def callback(self, body: AbstractIncomingMessage):
         message = Message.model_validate_json(body.body.decode())
+
+        def ack_callback():
+            body.channel.basic_ack(body.delivery_tag)
+
+        def rej_callback():
+            body.channel.basic_reject(body.delivery_tag)
+
+        self.ack_manager.manage(
+            message.message_id, ack_callback, rej_callback, self.timeout
+        )
         match message.m_type:
             case _ if message.m_type < MessageType.FUNCTION:
                 await self.chat_message(message)
             case MessageType.FUNC_CREATE_GROUP:
                 await self.get_create_massage(message)
+                self.ack_manager.acknowledge(message.message_id)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
                 # 如果是刚刚被添加的人
                 if str(message.receiver) == str(self.user_id):
                     await self.get_create_massage(message)
+                    self.ack_manager.acknowledge(message.message_id)
                 else:
                     # 给群聊列表增加人
                     group_id = message.content
@@ -290,9 +330,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def create_group(self, message: Message):
         # 确保group_members是list[int],以后搬到鉴权里面
-        if type(message.content.members) != list:
+        if not isinstance(message.content.members, list):
             return None
-        if len(message.content.members) == 0 & type(message.content.members[0]) != int:
+        if len(message.content.members) == 0 and not isinstance(message.content.members[0], int):
             return None
         # 建群
         if self.user_id not in message.content.members:
@@ -466,7 +506,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.friendship_change(self.user_id, friend_id, 2)
         await self.send_package_direct(message, str(self.user_id))
 
-
     async def unblock_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
@@ -489,7 +528,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send_package_direct(message, str(self.user_id))
 
     @database_sync_to_async
-    def get_user_info(self, user_id, user_email,find_type):
+    def get_user_info(self, user_id, user_email, find_type):
         if find_type == 1:
             user = User.objects.filter(id=user_id).first()
         elif find_type == 2:
@@ -497,11 +536,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         else:
             return None
         return user
+
     async def search_user(self, message: Message):
         find_type = message.t_type
         user_id = message.receiver
         user_email = message.content
-        user = await self.get_user_info(user_id, user_email,find_type)
+        user = await self.get_user_info(user_id, user_email, find_type)
         if user is None:
             message.content = "User not found"
         else:

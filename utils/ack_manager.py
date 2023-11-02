@@ -1,14 +1,14 @@
 import threading
 import time
-from enum import StrEnum, auto
-from typing import Any, Callable
+from enum import IntEnum, auto
+from typing import Any, Callable, Optional
 
 from pydantic import BaseModel
 
 MessageId = int | str
 
 
-class ManagingStatus(StrEnum):
+class ManagingStatus(IntEnum):
     PENDING = auto()
     CALLING = auto()
     REJECTING = auto()
@@ -21,7 +21,11 @@ class ManagingData(BaseModel):
     rej_callback: Callable[[], Any]
     timeout: int
     status: ManagingStatus = ManagingStatus.PENDING
-    lock: threading.Lock
+    lock: Any = None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.lock = threading.Lock()
 
 
 class AckManager:
@@ -52,7 +56,6 @@ class AckManager:
             ack_callback=ack_callback,
             rej_callback=rej_callback,
             timeout=timeout,
-            lock=threading.Lock(),
         )
 
         def _timeout_hook():
