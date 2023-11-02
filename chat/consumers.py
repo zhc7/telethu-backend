@@ -172,9 +172,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             ),
             routing_key="",
         )
+        # 回传消息给自己
+
         print("send to storage: ", message_json)
         match message_received.m_type:
             case _ if message_received.m_type < MessageType.FUNCTION:
+                await self.send_package_direct(message_received, str(self.user_id))
                 if message_received.t_type == TargetType.FRIEND:
                     await self.send_message_friend(message_received)
                 elif message_received.t_type == TargetType.GROUP:
