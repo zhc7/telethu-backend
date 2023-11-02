@@ -1,9 +1,8 @@
-import threading
+import asyncio
+import dataclasses
 import time
 from enum import IntEnum, auto
-from typing import Any, Callable, Optional
-
-from pydantic import BaseModel
+from typing import Any, Awaitable
 
 MessageId = int | str
 
@@ -16,27 +15,24 @@ class ManagingStatus(IntEnum):
     DONE = auto()
 
 
-class ManagingData(BaseModel):
-    ack_callback: Callable[[], Any]
-    rej_callback: Callable[[], Any]
+@dataclasses.dataclass
+class ManagingData:
+    ack_callback: Awaitable
+    rej_callback: Awaitable
     timeout: int
     status: ManagingStatus = ManagingStatus.PENDING
-    lock: Any = None
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.lock = threading.Lock()
+    lock: asyncio.Lock = dataclasses.field(default_factory=asyncio.Lock)
 
 
 class AckManager:
     def __init__(self):
         self.messages: dict[MessageId, ManagingData] = {}
 
-    def manage(
+    async def manage(
         self,
         message_id: MessageId,
-        ack_callback: Callable[[], Any],
-        rej_callback: Callable[[], Any],
+        ack_callback: Awaitable,
+        rej_callback: Awaitable,
         timeout: int,
     ) -> bool:
         """
@@ -58,19 +54,22 @@ class AckManager:
             timeout=timeout,
         )
 
-        def _timeout_hook():
-            time.sleep(timeout)
+        async def _timeout_hook():
+            print("callback registered")
+            await asyncio.sleep(timeout)
             data = self.messages[message_id]
-            with data.lock:
+            print("rejecting", data)
+            async with data.lock:
                 if data.status == ManagingStatus.PENDING:
                     data.status = ManagingStatus.REJECTING
-                    data.rej_callback()
+                    await data.rej_callback
+                    print(message_id, "rejected")
                     data.status = ManagingStatus.REJECTED
 
-        threading.Thread(target=_timeout_hook, daemon=True).start()
+        asyncio.create_task(_timeout_hook())
         return True
 
-    def acknowledge(self, message_id: MessageId) -> bool | Any:
+    async def acknowledge(self, message_id: MessageId) -> bool | Any:
         """
         acknowledge a message
 
@@ -80,12 +79,14 @@ class AckManager:
         if message_id not in self.messages:
             return False
         data = self.messages[message_id]
-        with data.lock:
+        print("acknowledging", data)
+        async with data.lock:
             if data.status != ManagingStatus.PENDING:
                 return False
             data.status = ManagingStatus.CALLING
-            ret = data.ack_callback()
+            ret = await data.ack_callback
             data.status = ManagingStatus.DONE
+            print(message_id, "acknowledged")
             return ret
 
     def status_of(self, message_id: MessageId) -> ManagingStatus:

@@ -146,7 +146,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(dict_data)
         if "m_type" not in dict_data:
             ack_received = Ack.model_validate(dict_data)
-            self.ack_manager.acknowledge(ack_received.message_id)
+            await self.ack_manager.acknowledge(ack_received.message_id)
             return
         message_received = Message.model_validate(dict_data)
         print(message_received.model_dump())
@@ -155,10 +155,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         tmp_id = message_received.message_id
         print("received tmp_id", tmp_id)
         if tmp_id in self.received:
-            await self.send(Ack(
-                message_id=self.received[tmp_id].message_id,
-                reference=tmp_id,
-            ).model_dump_json())
+            await self.send(
+                Ack(
+                    message_id=self.received[tmp_id].message_id,
+                    reference=tmp_id,
+                ).model_dump_json()
+            )
             return
         message_received.message_id = globalMessageIdMaker.get_id()
         # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
@@ -249,26 +251,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def callback(self, body: AbstractIncomingMessage):
         message = Message.model_validate_json(body.body.decode())
 
-        def ack_callback():
-            body.channel.basic_ack(body.delivery_tag)
+        ack_callback = body.channel.basic_ack(delivery_tag=body.delivery_tag)
 
-        def rej_callback():
-            body.channel.basic_reject(body.delivery_tag)
+        async def push_message():
+            await self.chat_message(message)
+            print("pushed", message.model_dump())
+            await self.ack_manager.manage(
+                message.message_id, ack_callback, push_message(), self.timeout
+            )
 
-        self.ack_manager.manage(
-            message.message_id, ack_callback, rej_callback, self.timeout
-        )
+        await push_message()
         match message.m_type:
             case _ if message.m_type < MessageType.FUNCTION:
                 await self.chat_message(message)
             case MessageType.FUNC_CREATE_GROUP:
                 await self.get_create_massage(message)
-                self.ack_manager.acknowledge(message.message_id)
+                await self.ack_manager.acknowledge(message.message_id)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
                 # 如果是刚刚被添加的人
                 if str(message.receiver) == str(self.user_id):
                     await self.get_create_massage(message)
-                    self.ack_manager.acknowledge(message.message_id)
+                    await self.ack_manager.acknowledge(message.message_id)
                 else:
                     # 给群聊列表增加人
                     group_id = message.content
@@ -332,7 +335,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 确保group_members是list[int],以后搬到鉴权里面
         if not isinstance(message.content.members, list):
             return None
-        if len(message.content.members) == 0 and not isinstance(message.content.members[0], int):
+        if len(message.content.members) == 0 and not isinstance(
+            message.content.members[0], int
+        ):
             return None
         # 建群
         if self.user_id not in message.content.members:
