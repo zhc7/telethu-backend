@@ -46,8 +46,6 @@ class AckManager:
 
         note: callbacks are assumed to be non-blocking
         """
-        if message_id in self.messages:
-            return False
         self.messages[message_id] = ManagingData(
             ack_callback=ack_callback,
             rej_callback=rej_callback,
