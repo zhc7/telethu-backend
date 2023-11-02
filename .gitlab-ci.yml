@@ -16,8 +16,10 @@ build:
   only:
     - main
 
-unit-test:
+test:
   stage: test
+  script:
+    - echo placeholder
   after_script:
     - SUFFIX=$RANDOM
     - curl "http://api.secoder.net/static/sonar-scanner.tar.gz" -s -o "/tmp/sonar-$SUFFIX.tar.gz"
