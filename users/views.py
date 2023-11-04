@@ -499,12 +499,13 @@ def post_multimedia(req: HttpRequest):
         # if the file does not exist.
         return request_failed(2, "you can not post the file without claim in websocket", status_code=401)
 
+
 @CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_multimedia(req: HttpRequest):
     if req.method != "POST":
         return BAD_METHOD
-    user_id = req.user_id # get the user id
+    user_id = req.user_id  # get the user id
     body = json.loads(req.body)
     multimedia_md5 = require(
         body, "multimediaMD5", "string", err_msg="Missing or error type of [multimediaMD5]"
