@@ -1,9 +1,9 @@
 import json
-
+import os
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from users.models import User, Friendship
+from users.models import User, Friendship, Multimedia
 from utils.data import UserData
 from utils.session import SessionData
 from utils.uid import globalIdMaker
@@ -26,16 +26,16 @@ def login(req: HttpRequest):
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
-    userEmail = require(
+    user_email = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
 
     # 检查用户名是否存在
-    if not User.objects.filter(userEmail=userEmail).exists():
+    if not User.objects.filter(userEmail=user_email).exists():
         return request_failed(2, "Username not exists", status_code=401)
 
     # 检查密码是否正确
-    user = User.objects.get(userEmail=userEmail)
+    user = User.objects.get(userEmail=user_email)
 
     # 利用 SHA256 算法对用户输入的密码进行 5 次加密，与正确的密码（同样已经加密 5 次）进行对比
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
@@ -81,12 +81,12 @@ def logout(req: HttpRequest):
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
-    userEmail = require(
+    user_email = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
-    if not User.objects.filter(userEmail=userEmail).exists():
+    if not User.objects.filter(userEmail=user_email).exists():
         return request_failed(2, "Username not exists", status_code=401)
-    user = User.objects.get(userEmail=userEmail)
+    user = User.objects.get(userEmail=user_email)
     user_id = user.id
     session = SessionData(req)
     if user_id != session.user_id:
@@ -119,13 +119,13 @@ def register(req: HttpRequest):
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
     )
-    userEmail = require(
+    user_email = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
 
     # phone = require(body, "phone", "string", err_msg="Missing or error type of [phone]")
     # 检查用户邮箱是否已存在
-    if User.objects.filter(userEmail=userEmail).exists():
+    if User.objects.filter(userEmail=user_email).exists():
         return request_failed(2, "userEmail already exists", status_code=401)
 
     # 检查用户名格式，密码格式，手机号格式,如果不符合要求，返回422.有需求改变取check_require函数去改动
@@ -133,7 +133,7 @@ def register(req: HttpRequest):
         return request_failed(2, "Invalid username", status_code=422)
     if not check_require(password, "password"):
         return request_failed(2, "Invalid password", status_code=422)
-    if not check_require(userEmail, "email"):
+    if not check_require(user_email, "email"):
         return request_failed(2, "Invalid email", status_code=422)
 
     # if not check_require (phone, "phone"):
@@ -145,7 +145,7 @@ def register(req: HttpRequest):
 
     # 利用 SHA256 算法对新建用户的密码进行 5 次加密
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
-    user = User(id=globalIdMaker.get_id(), username=username, password=hashed_password, userEmail=userEmail)
+    user = User(id=globalIdMaker.get_id(), username=username, password=hashed_password, userEmail=user_email)
     user.save()
     return request_success()
 
@@ -467,3 +467,37 @@ def get_you_apply_list(req: HttpRequest):
         ]
     }
     return request_success(response_data)
+
+
+@CheckRequire
+@csrf_exempt  # 允许跨域,便于测试
+def post_multimedia(req: HttpRequest):
+    # check the method
+    if req.method != "POST":
+        return BAD_METHOD
+    body = json.loads(req.body)
+    multimedia_m_type = require(
+        body, "multimediaType", "int", err_msg="Missing or error type of [multimediaType]"
+    )
+    multimedia_content = require(
+        body, "multimediaContent", "string", err_msg="Missing or error type of [multimediaContent]"
+    )
+    multimedia_md5 = require(
+        body, "multimediaMD5", "string", err_msg="Missing or error type of [multimediaMD5]"
+    )
+    # calculate the md5 of the content
+    real_md5 = hash_string_with_sha256(multimedia_content, num_iterations=5)
+    if Multimedia.objects.filter(multimedia_id=real_md5).exists():
+        # if the file exists,do no thing,else download the file
+        if not os.path.exists("./files"):
+            os.mkdir("./files")
+        file_path = "./files/" + real_md5
+        if not os.path.exists(file_path):
+            with open(file_path, "w") as f:
+                f.write(multimedia_content)
+        return request_success()
+    else:
+        # if the file does not exist.
+        return request_failed(2, "you can not post the file without claim in websocket", status_code=401)
+    # 不存在则创建
+    # 存在则返回

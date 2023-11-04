@@ -15,4 +15,5 @@ urlpatterns = [
     path('friends/list', views.get_friend_list),
     path('friends/apply_list', views.get_apply_list),
     path('friends/you_apply_list', views.get_you_apply_list),
+    path('friends/post_multimedia', views.post_multimedia),
 ]
