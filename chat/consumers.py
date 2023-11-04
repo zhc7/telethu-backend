@@ -5,7 +5,7 @@ from aio_pika.abc import AbstractIncomingMessage
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from users.models import Friendship, GroupList, User
+from users.models import Friendship, GroupList, User, Multimedia
 from utils.ack_manager import AckManager
 from utils.data import (
     MessageType,
@@ -177,6 +177,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print("send to storage: ", message_json)
         match message_received.m_type:
             case _ if message_received.m_type < MessageType.FUNCTION:
+                if message_received.m_type != MessageType.TEXT:  # multimedia
+                    await self.handle_multimedia(message_received)
                 await self.send_package_direct(message_received, str(self.user_id))
                 if message_received.t_type == TargetType.FRIEND:
                     await self.send_message_friend(message_received)
@@ -310,7 +312,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.chat_message(message)
 
     async def send_package_direct(
-        self, message: Message, receiver: str
+            self, message: Message, receiver: str
     ):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
         # 发送消息给rabbitmq
@@ -342,7 +344,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not isinstance(message.content.members, list):
             return None
         if len(message.content.members) == 0 and not isinstance(
-            message.content.members[0], int
+                message.content.members[0], int
         ):
             return None
         # 建群
@@ -470,9 +472,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.sender = self.user_id
         friendship_now, message.content = await self.friendship(self.user_id, friend_id)
         if (
-            friendship_now == FriendType.relationship_not_exist
-            or friendship_now == FriendType.already_been_reject
-            or friendship_now == FriendType.already_reject_friend
+                friendship_now == FriendType.relationship_not_exist
+                or friendship_now == FriendType.already_been_reject
+                or friendship_now == FriendType.already_reject_friend
         ):
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))  # 发送消息给对方
@@ -506,11 +508,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.sender = self.user_id
         friendship_now, message.content = await self.friendship(self.user_id, friend_id)
         if (
-            friendship_now == FriendType.already_friend
-            or friendship_now == FriendType.already_receive_apply
-            or friendship_now == FriendType.already_send_apply
-            or friendship_now == FriendType.already_reject_friend
-            or friendship_now == FriendType.already_been_reject
+                friendship_now == FriendType.already_friend
+                or friendship_now == FriendType.already_receive_apply
+                or friendship_now == FriendType.already_send_apply
+                or friendship_now == FriendType.already_reject_friend
+                or friendship_now == FriendType.already_been_reject
         ):
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))
@@ -564,3 +566,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             message.content = userdata
         await self.chat_message(message)
+
+    @database_sync_to_async
+    def create_multimedia(self, m_type, md5, t_type, user_or_group):
+        if t_type == TargetType.FRIEND:  # IF FRIEND
+            # if exist
+            if Multimedia.objects.filter(multimedia_id=md5).exists():
+                Multimedia.objects.filter(multimedia_id=md5).first().multimedia_user_listener.add(user_or_group)
+            else:
+                multimedia = Multimedia.objects.create(multimedia_id=md5, multimedia_type=m_type)
+                multimedia.multimedia_user_listener.add(user_or_group)
+                multimedia.save()
+        elif t_type == TargetType.GROUP:  # IF GROUP
+            # if exist
+            if Multimedia.objects.filter(multimedia_id=md5).exists():
+                Multimedia.objects.filter(multimedia_id=md5).first().multimedia_group_listener.add(user_or_group)
+            else:
+                multimedia = Multimedia.objects.create(multimedia_id=md5, multimedia_type=m_type)
+                multimedia.multimedia_group_listener.add(user_or_group)
+                multimedia.save()
+        return
+
+    async def handle_multimedia(self, message: Message):
+        m_type = message.m_type
+        md5 = message.content
+        t_type = message.t_type
+        user_or_group = message.receiver
+        await self.create_multimedia(m_type, md5, t_type, user_or_group)
