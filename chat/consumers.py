@@ -119,7 +119,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.group_list, self.group_members, self.group_names = await self.query_group()
 
         # 建立queue
-        queue_name_receive = str(self.user_id)
+        queue_name_receive = self.scope["session"]["browser"]
         # 用户订阅好友的消息
         queue_receive = await self.channel.declare_queue(queue_name_receive)
         await queue_receive.bind(self.self_exchange)
