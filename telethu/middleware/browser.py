@@ -9,11 +9,11 @@ class BrowserMiddleware:
 
     @staticmethod
     def add_browser(scope):
-        my_uid = uuid.uuid4()
         session = WebSocketSessionData(scope)
-        session.browser = my_uid
+        if not session.browser:
+            session.browser = str(uuid.uuid4())
 
     async def __call__(self, scope, receive, send):
-        print("You are in Browser Middleware!!!")
+        print("In Browser Middleware")
         self.add_browser(scope)
         return await self.app(scope, receive, send)
