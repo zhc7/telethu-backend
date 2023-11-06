@@ -473,3 +473,7 @@ def get_you_apply_list(req: HttpRequest):
     }
     return request_success(response_data)
 
+@CheckRequire
+@csrf_exempt
+def verification(req: HttpRequest):
+    pass
