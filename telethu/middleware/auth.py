@@ -87,7 +87,9 @@ class SimpleMiddleware:
                     2, "JWT not found or JWT format error", status_code=401
                 )
             elif token_result == 2:
+                session = SessionData(request)
                 if request.session.get("user_id") is None:
+                    session.user_id = None
                     return request_failed(
                         2, "Login has expired or haven't login 1!", status_code=401
                     )
@@ -98,6 +100,8 @@ class SimpleMiddleware:
                 )
             login_result = self.check_last_login(request)
             if login_result is None:
+                session = SessionData(request)
+                session.user_id = None
                 return request_failed(
                     2, "Login has expired or haven't login 2!", status_code=401
                 )
@@ -112,11 +116,15 @@ class SimpleMiddleware:
         elif not token and my_user_id:
             print("branch 3")
             if request.session.get("user_id") is None:
+                session = SessionData(request)
+                session.user_id = None
                 return request_failed(
                     2, "Login has expired or haven't login 3!", status_code=401
                 )
             login_result = self.check_last_login(request)
             if login_result is None:
+                session = SessionData(request)
+                session.user_id = None
                 return request_failed(
                     2, "Login has expired or haven't login 4!", status_code=401
                 )
