@@ -4,6 +4,7 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from users.models import User, Friendship
 from utils.data import UserData
+from users.email import email_sender
 from utils.session import SessionData
 from utils.uid import globalIdMaker
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
@@ -109,7 +110,7 @@ def register(req: HttpRequest):
     # 检查请求方法
     if req.method != "POST":
         return BAD_METHOD
-
+    print("in register!")
     # 检查请求体
     body = json.loads(req.body)
     username = require(
@@ -121,7 +122,7 @@ def register(req: HttpRequest):
     user_email = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
-
+    email_sender(user_email)
     # phone = require(body, "phone", "string", err_msg="Missing or error type of [phone]")
     # 检查用户邮箱是否已存在
     if User.objects.filter(userEmail=user_email).exists():
@@ -471,3 +472,4 @@ def get_you_apply_list(req: HttpRequest):
         ]
     }
     return request_success(response_data)
+

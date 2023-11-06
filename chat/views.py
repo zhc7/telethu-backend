@@ -20,7 +20,6 @@ def room(request, room_name):
 def chat_history(request):
     print("You are getting chat_history!")
     from_value = int(request.GET.get("from", ""))
-    print("1")
     num_value = int(request.GET.get("num", ""))
     id_value = int(request.GET.get("id", ""))
     print("id_value is: ", id_value)
