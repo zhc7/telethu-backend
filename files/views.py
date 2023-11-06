@@ -2,7 +2,7 @@ import json
 import os
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-
+import hashlib
 from users.models import User, Friendship
 from files.models import Multimedia
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
@@ -20,7 +20,11 @@ def upload(req: HttpRequest, hash_code: str):
     multimedia_content = req.body
     multimedia_md5 = hash_code
     # calculate the md5 of the content
-    real_md5 = hash_string_with_sha256(multimedia_content, num_iterations=5)
+    md5_hash = hashlib.md5()
+    md5_hash.update(multimedia_content)
+    real_md5 = md5_hash.hexdigest()
+    # 获取 MD5 哈希值的十六进制表示
+    md5_hex = md5_hash.hexdigest()
     if real_md5 != multimedia_md5:
         return request_failed(2, "the md5 is not correct", status_code=401)
     if Multimedia.objects.filter(multimedia_id=real_md5).exists():

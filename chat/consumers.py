@@ -5,7 +5,8 @@ from aio_pika.abc import AbstractIncomingMessage
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from users.models import Friendship, GroupList, User, Multimedia
+from users.models import Friendship, GroupList, User
+from files.models import Multimedia
 from utils.ack_manager import AckManager
 from utils.data import (
     MessageType,
