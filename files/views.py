@@ -13,17 +13,12 @@ from utils.utils_require import check_require, CheckRequire, require
 # Create your views here.
 @CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
-def upload(req: HttpRequest):
+def upload(req: HttpRequest, hash_code: str):
     # check the method
     if req.method != "POST":
         return BAD_METHOD
-    body = json.loads(req.body)
-    multimedia_content = require(
-        body, "multimediaContent", "string", err_msg="Missing or error type of [multimediaContent]"
-    )
-    multimedia_md5 = require(
-        body, "multimediaMD5", "string", err_msg="Missing or error type of [multimediaMD5]"
-    )
+    multimedia_content = req.body
+    multimedia_md5 = hash_code
     # calculate the md5 of the content
     real_md5 = hash_string_with_sha256(multimedia_content, num_iterations=5)
     if real_md5 != multimedia_md5:
@@ -44,14 +39,11 @@ def upload(req: HttpRequest):
 
 @CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
-def download(req: HttpRequest):
-    if req.method != "POST":
+def download(req: HttpRequest, hash_code: str):
+    if req.method != "GET":
         return BAD_METHOD
     user_id = req.user_id  # get the user id
-    body = json.loads(req.body)
-    multimedia_md5 = require(
-        body, "multimediaMD5", "string", err_msg="Missing or error type of [multimediaMD5]"
-    )
+    multimedia_md5 = hash_code
     if Multimedia.objects.filter(multimedia_id=multimedia_md5).exists():
         multimedia = Multimedia.objects.get(multimedia_id=multimedia_md5)
         user_list = multimedia.multimedia_user_listener
