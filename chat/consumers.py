@@ -574,6 +574,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # if exist
             if Multimedia.objects.filter(multimedia_id=md5).exists():
                 Multimedia.objects.filter(multimedia_id=md5).first().multimedia_user_listener.add(user_or_group)
+                Multimedia.objects.filter(multimedia_id=md5).first().multimedia_group_listener.add(self.user_id)
             else:
                 multimedia = Multimedia.objects.create(multimedia_id=md5, multimedia_type=m_type)
                 multimedia.multimedia_user_listener.add(user_or_group)
