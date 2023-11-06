@@ -2,6 +2,7 @@ image: registry.secoder.net/tool/deployer
 
 stages:
   - build
+  - test
   - deploy
 
 build:
@@ -12,6 +13,18 @@ build:
     - export BUILD_IMAGE_USERNAME=$CI_REGISTRY_USER
     - export BUILD_IMAGE_PASSWORD=$CI_REGISTRY_PASSWORD
     - deployer build
+  only:
+    - main
+
+test:
+  stage: test
+  script:
+    - echo placeholder
+  after_script:
+    - SUFFIX=$RANDOM
+    - curl "http://api.secoder.net/static/sonar-scanner.tar.gz" -s -o "/tmp/sonar-$SUFFIX.tar.gz"
+    - tar -xf "/tmp/sonar-$SUFFIX.tar.gz"  -C /opt
+    - /opt/sonar-scanner/bin/sonar-scanner
   only:
     - main
 
