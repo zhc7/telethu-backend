@@ -2,7 +2,6 @@ import json
 import os
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-
 from users.models import User, Friendship
 from utils.data import UserData
 from utils.session import SessionData
@@ -467,5 +466,3 @@ def get_you_apply_list(req: HttpRequest):
         ]
     }
     return request_success(response_data)
-
-
