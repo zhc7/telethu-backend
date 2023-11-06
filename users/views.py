@@ -63,7 +63,7 @@ def login(req: HttpRequest):
         "token": token,
         "user": UserData(
             id=user.id, name=user.username, avatar=user.avatar, email=user.userEmail
-        ).model_dump()
+        ).model_dump(),
     }
     return request_success(response_data)
 
@@ -144,7 +144,12 @@ def register(req: HttpRequest):
 
     # 利用 SHA256 算法对新建用户的密码进行 5 次加密
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
-    user = User(id=globalIdMaker.get_id(), username=username, password=hashed_password, userEmail=user_email)
+    user = User(
+        id=globalIdMaker.get_id(),
+        username=username,
+        password=hashed_password,
+        userEmail=user_email,
+    )
     user.save()
     return request_success()
 

@@ -72,5 +72,3 @@ class MessageList(models.Model):
     sender = models.IntegerField(blank=False, null=False)
     receiver = models.IntegerField(blank=False, null=False)
     info = models.CharField(max_length=256, default="")
-
-
