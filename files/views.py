@@ -1,6 +1,6 @@
 import json
 import os
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpRequest, FileResponse
 from django.views.decorators.csrf import csrf_exempt
 import hashlib
 from users.models import User, Friendship
@@ -29,16 +29,19 @@ def upload(req: HttpRequest, hash_code: str):
         return request_failed(2, "the md5 is not correct", status_code=401)
     if Multimedia.objects.filter(multimedia_id=real_md5).exists():
         # if the file exists,do nothing,else download the file
-        if not os.path.exists("./files"):
-            os.mkdir("./files")
-        file_path = "./files/" + real_md5
+        if not os.path.exists("./files/file_storage"):
+            os.mkdir("./files/file_storage")
+
+        file_path = "./files/file_storage/" + real_md5
         if not os.path.exists(file_path):
-            with open(file_path, "w") as f:
+            with open(file_path, "wb") as f:
                 f.write(multimedia_content)
         return request_success()
     else:
         # if the file does not exist.
-        return request_failed(2, "you can not post the file without claim in websocket", status_code=401)
+        return request_failed(
+            2, "you can not post the file without claim in websocket", status_code=401
+        )
 
 
 @CheckRequire
@@ -53,26 +56,30 @@ def download(req: HttpRequest, hash_code: str):
         user_list = multimedia.multimedia_user_listener
         group_list = multimedia.multimedia_group_listener
         listener = False
-        if user_id in user_list:
+        if user_list is not None and user_list.filter(id=user_id).exists():
             listener = True
-        for group in group_list:
-            if user_id in group.group_members:
-                listener = True
+        if group_list is not None:
+            groups = group_list.all()
+            for group in groups:
+                if user_id in group.group_members:
+                    listener = True
         if not listener:
             return request_failed(2, "you can not get this file", status_code=401)
         else:
-            if not os.path.exists("./files"):
-                os.mkdir("./files")
-            file_path = "./files/" + multimedia_md5
+            if not os.path.exists("./files/file_storage"):
+                os.mkdir("./files/file_storage")
+            file_path = "./files/file_storage/" + multimedia_md5
             if not os.path.exists(file_path):
-                return request_failed(2, "the file is not in the server", status_code=401)
+                return request_failed(
+                    2, "the file is not in the server", status_code=401
+                )
             else:
-                with open(file_path, "r") as f:
+                with open(file_path, "rb") as f:
                     multimedia_content = f.read()
-                response_data = {
-                    "multimediaContent": multimedia_content,
-                    "multimediaType": multimedia.multimedia_type
-                }
-                return request_success(response_data)
+                response = FileResponse(
+                    multimedia_content, content_type="application/octet-stream"
+                )
+                response["Content-Disposition"] = "attachment"
+                return response
     else:
         return request_failed(2, "the file hasn't claim", status_code=401)

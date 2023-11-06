@@ -71,7 +71,7 @@ class QueryAuthMiddleware:
 
     # 完整的鉴权逻辑，在上面的注释当中有所提及
     async def check_token_and_session(self, scope):
-        query_string = scope['query_string'].decode('utf-8')
+        query_string = scope["query_string"].decode("utf-8")
         query_params = QueryDict(query_string)
         token = query_params.get("token")
         sessions = scope.get("session")
