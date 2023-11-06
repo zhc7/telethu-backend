@@ -27,6 +27,12 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = 'smtp.126.com'
+EMAIL_PORT = 465
+EMAIL_HOST_USER = 'telethu@126.com'
+EMAIL_HOST_PASSWORD = 'GZCAYVEBQAFEJOMK'
+EMAIL_USE_SSL = True
 
 # Application definition
 
@@ -141,3 +147,4 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 2621440000  # 2.5GB
+
