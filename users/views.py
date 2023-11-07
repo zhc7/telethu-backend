@@ -110,7 +110,6 @@ def register(req: HttpRequest):
     # 检查请求方法
     if req.method != "POST":
         return BAD_METHOD
-    print("in register!")
     # 检查请求体
     body = json.loads(req.body)
     username = require(
@@ -122,7 +121,7 @@ def register(req: HttpRequest):
     user_email = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
-    email_sender(user_email)
+
     # phone = require(body, "phone", "string", err_msg="Missing or error type of [phone]")
     # 检查用户邮箱是否已存在
     if User.objects.filter(userEmail=user_email).exists():
@@ -152,6 +151,7 @@ def register(req: HttpRequest):
         userEmail=user_email,
     )
     user.save()
+    email_sender(req, user_email, user.id)
     return request_success()
 
 
@@ -473,7 +473,9 @@ def get_you_apply_list(req: HttpRequest):
     }
     return request_success(response_data)
 
+
 @CheckRequire
 @csrf_exempt
 def verification(req: HttpRequest):
+    # TODO: 首先在 urls.py 当中需要制定相关的 API
     pass
