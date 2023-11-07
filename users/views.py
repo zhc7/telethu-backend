@@ -10,7 +10,7 @@ from utils.uid import globalIdMaker
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from utils.utils_require import check_require, CheckRequire, require
-
+from django.core.signing import loads
 
 # Create your views here.
 @CheckRequire
@@ -476,6 +476,13 @@ def get_you_apply_list(req: HttpRequest):
 
 @CheckRequire
 @csrf_exempt
-def verification(req: HttpRequest):
-    # TODO: 首先在 urls.py 当中需要制定相关的 API
-    pass
+def verification(req: HttpRequest, signed_data):
+    data = loads(signed_data)
+    user_id = data["user_id"]
+    email = data["email"]
+
+    user = User.objects.filter(id=user_id, userEmail=email)
+    if len(user) == 0:
+        return request_failed(2, "No such user in email verification!", status_code=401)
+    else:
+        user[0].verification = True
