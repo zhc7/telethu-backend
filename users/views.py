@@ -475,7 +475,6 @@ def get_you_apply_list(req: HttpRequest):
     }
     return request_success(response_data)
 
-
 @CheckRequire
 @csrf_exempt
 def verification(req: HttpRequest, signed_data):
@@ -483,13 +482,17 @@ def verification(req: HttpRequest, signed_data):
     data = loads(signed_data)
     user_id = data["user_id"]
     email = data["email"]
-
-    user = User.objects.filter(id=user_id, userEmail=email)
-    if len(user) == 0:
+    print("1!")
+    user = User.objects.get(id=user_id, userEmail=email)
+    print("2")
+    if user is None:
+        print("3")
         return request_failed(2, "No such user in email verification!", status_code=401)
     else:
-        user[0].verification = True
-
+        print("user found!")
+        user.verification = True
+        user.save()
+        return request_success()
 
 @CheckRequire
 @csrf_exempt
@@ -549,3 +552,4 @@ def profile(req: HttpRequest):
         profile = user.profile
         response_data = profile
         return request_success(response_data)
+

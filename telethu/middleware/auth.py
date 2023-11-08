@@ -144,7 +144,11 @@ class SimpleMiddleware:
         # 现在之对于 request 进行处理
         path = request.path
         print("In auth middleware!")
-        if not path.endswith("/login") and not path.endswith("/register"):
+        if (
+            not path.endswith("/login")
+            and not path.endswith("/register")
+            and "verify" not in path
+        ):
             print("You are not logging in!")
             result = self.check_token_and_session(request)
             if result != 0:
