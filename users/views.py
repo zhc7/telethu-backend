@@ -1,6 +1,7 @@
+import hashlib
 import json
 import os
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpRequest, JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from users.models import User, Friendship
 from utils.data import UserData
@@ -10,6 +11,7 @@ from utils.uid import globalIdMaker
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from utils.utils_require import check_require, CheckRequire, require
+import magic
 
 
 # Create your views here.
@@ -479,3 +481,45 @@ def get_you_apply_list(req: HttpRequest):
 def verification(req: HttpRequest):
     # TODO: 首先在 urls.py 当中需要制定相关的 API
     pass
+
+
+@CheckRequire
+@csrf_exempt
+def avatar(req: HttpRequest, hash_code: str = None):
+    if req.method == "POST":
+        avatar_real = req.body
+        # check the type
+        mime = magic.Magic()
+        detected_mime = mime.from_buffer(avatar_real)
+        print(detected_mime)
+        if "png" not in detected_mime.lower():
+            return request_failed(2, "the file type is not correct", status_code=401)
+        # get the md5
+        md5_hash = hashlib.md5()
+        md5_hash.update(avatar_real)
+        real_md5 = md5_hash.hexdigest()
+        # save the file
+        if not os.path.exists("./files/avatar_storage"):
+            os.mkdir("./files/avatar_storage")
+        file_path = "./files/avatar_storage/" + real_md5
+        if not os.path.exists(file_path):
+            with open(file_path, "wb") as f:
+                f.write(avatar_real)
+        # save the file path
+        user = User.objects.get(id=req.user_id)
+        user.avatar = file_path
+        user.save()
+        return request_success()
+    elif req.method == "GET":
+        user = User.objects.get(id=req.user_id)
+        avatar_path = user.avatar
+        if hash_code:
+            avatar_path = "./files/avatar_storage/" + hash_code
+        if avatar_path is None:
+            return request_failed(2, "the avatar is not exist", status_code=401)
+        if not os.path.exists(avatar_path):
+            return request_failed(2, "the avatar is not exist", status_code=401)
+        with open(avatar_path, "rb") as f:
+            avatar_real = f.read()
+        response = HttpResponse(avatar_real, content_type="image/jpeg")
+        return response

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 
 from . import views
 
@@ -16,4 +16,6 @@ urlpatterns = [
     path("friends/apply_list", views.get_apply_list),
     path("friends/you_apply_list", views.get_you_apply_list),
     path("verify/<str:signed_data>/", views.verification),
+    re_path(r"avatar/(?P<hash_code>[a-f0-9]+)?", views.avatar),
+
 ]
