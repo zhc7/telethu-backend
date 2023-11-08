@@ -15,6 +15,7 @@ class User(models.Model):
     )
     created_time = models.DateTimeField(auto_now_add=True)
     verification = models.BooleanField(default=False)
+    profile = models.JSONField(default=dict)
 
     class Meta:
         pass
