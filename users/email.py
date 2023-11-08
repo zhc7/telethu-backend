@@ -13,4 +13,5 @@ def email_sender(req, email, user_id):
     message = f"Welcome to Telethu! To authorize your your identity, please click the link: {verification_link}"
     from_email = "telethu@126.com"
     recipient_list = [email]
+    print("ready to send mail! ")
     send_mail(subject, message, from_email, recipient_list, fail_silently=False)

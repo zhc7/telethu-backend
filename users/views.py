@@ -121,7 +121,7 @@ def register(req: HttpRequest):
     user_email = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
-
+    print("user_email is: ", user_email)
     # phone = require(body, "phone", "string", err_msg="Missing or error type of [phone]")
     # 检查用户邮箱是否已存在
     if User.objects.filter(userEmail=user_email).exists():
@@ -477,6 +477,7 @@ def get_you_apply_list(req: HttpRequest):
 @CheckRequire
 @csrf_exempt
 def verification(req: HttpRequest, signed_data):
+    print("Your are in verification! ")
     data = loads(signed_data)
     user_id = data["user_id"]
     email = data["email"]
