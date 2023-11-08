@@ -49,7 +49,7 @@ def load(req: HttpRequest, hash_code: str):
             file_path = "./files/file_storage/" + real_md5
             if not os.path.exists(file_path):
                 multimedia = Multimedia.objects.get(multimedia_id=multimedia_md5)
-                m_type = multimedia.m_type
+                m_type = multimedia.multimedia_type
                 mime = magic.Magic()
                 detected_mime = mime.from_buffer(multimedia_content)
                 try:
@@ -71,7 +71,7 @@ def load(req: HttpRequest, hash_code: str):
         multimedia_md5 = hash_code
         if Multimedia.objects.filter(multimedia_id=multimedia_md5).exists():
             multimedia = Multimedia.objects.get(multimedia_id=multimedia_md5)
-            m_type = multimedia.m_type
+            m_type = multimedia.multimedia_type
             user_list = multimedia.multimedia_user_listener
             group_list = multimedia.multimedia_group_listener
             listener = False
