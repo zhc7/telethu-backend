@@ -13,16 +13,16 @@ import magic
 
 def check_type(m_type, detected_mime):
     if m_type == 1:  # image
-        if not detected_mime.startswith("image"):
+        if not "png" in detected_mime.lower():
             raise ValueError("the file type is not correct")
     elif m_type == 2:  # audio
-        if not detected_mime.startswith("audio"):
+        if not "mpeg" in detected_mime.lower():
             raise ValueError("the file type is not correct")
     elif m_type == 3:  # video
-        if not detected_mime.startswith("video"):
+        if not "mp4" in detected_mime.lower():
             raise ValueError("the file type is not correct")
     elif m_type == 4:  # file
-        if not detected_mime.startswith("application"):
+        if not "octet-stream" in detected_mime.lower():
             raise ValueError("the file type is not correct")
     else:
         raise ValueError("the file type is not correct")
