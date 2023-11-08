@@ -523,3 +523,21 @@ def avatar(req: HttpRequest, hash_code: str = None):
             avatar_real = f.read()
         response = HttpResponse(avatar_real, content_type="image/jpeg")
         return response
+
+
+@CheckRequire
+@csrf_exempt
+def profile(req: HttpRequest):
+    if req.method == "POST":
+        user_id = req.user_id
+        profile_get = json.loads(req.body)
+        user = User.objects.get(id=user_id)
+        user.profile = profile_get
+        user.save()
+        return request_success()
+    elif req.method == "GET":
+        user_id = req.user_id
+        user = User.objects.get(id=user_id)
+        profile = user.profile
+        response_data = profile
+        return request_success(response_data)
