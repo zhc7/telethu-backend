@@ -13,8 +13,11 @@ RUN echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://
 RUN apt update
 RUN apt install -y redis
 
-COPY requirements.txt .
 RUN apt update && apt install -y python3-pip
+
+RUN apt install -y libmagic1  # for python-magic
+
+COPY requirements.txt .
 RUN pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY . .
