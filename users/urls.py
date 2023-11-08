@@ -16,6 +16,7 @@ urlpatterns = [
     path("friends/apply_list", views.get_apply_list),
     path("friends/you_apply_list", views.get_you_apply_list),
     path("verify/<str:signed_data>/", views.verification, name='verify'),
+    path("verify/sendemail", views.sendemail),
     re_path(r"avatar/(?P<hash_code>[a-f0-9]+)?", views.avatar),
     path("profile", views.profile),
 ]

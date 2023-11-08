@@ -494,6 +494,20 @@ def verification(req: HttpRequest, signed_data):
         user.save()
         return request_success()
 
+
+@CheckRequire
+@csrf_exempt
+def sendemail(req: HttpRequest):
+    if req.method != "POST":
+        return BAD_METHOD
+
+    # 检查请求体
+    id = req.user_id
+    user = User.objects.get(id=id)
+    email = user.userEmail
+    email_sender(req, email, id)
+
+
 @CheckRequire
 @csrf_exempt
 def avatar(req: HttpRequest, hash_code: str = None):
