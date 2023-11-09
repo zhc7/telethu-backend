@@ -5,16 +5,14 @@ FROM rabbitmq:3.12-management
 
 WORKDIR /app
 
-# refresh secoder cache
-RUN apt update
 
 #install redis
 RUN apt update
-#RUN apt install -y lsb-release curl gpg
-#RUN curl -fsSL https://packages.redis.io/gpg | gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
-#RUN echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/redis.list
-#RUN apt update
-#RUN apt install -y redis
+RUN apt install -y lsb-release curl gpg
+RUN curl -fsSL https://packages.redis.io/gpg | gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+RUN echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/redis.list
+RUN apt update
+RUN apt install -y redis
 
 RUN apt install -y python3-pip
 
