@@ -27,8 +27,7 @@ def check_type(m_type, detected_mime):
         if "mp4" not in detected_mime.lower():
             raise ValueError("the file type is not correct")
     elif m_type == 4:  # file
-        if not "octet-stream" in detected_mime.lower():
-            raise ValueError("the file type is not correct")
+        pass
     else:
         raise ValueError("the file type is not correct")
 
