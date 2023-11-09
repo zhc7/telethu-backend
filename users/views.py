@@ -14,6 +14,7 @@ from utils.utils_require import check_require, CheckRequire, require
 from django.core.signing import loads
 import magic
 
+
 # Create your views here.
 @CheckRequire
 @csrf_exempt  # 关闭csrf验证
@@ -475,6 +476,7 @@ def get_you_apply_list(req: HttpRequest):
     }
     return request_success(response_data)
 
+
 @CheckRequire
 @csrf_exempt
 def verification(req: HttpRequest, signed_data):
@@ -567,3 +569,44 @@ def profile(req: HttpRequest):
         response_data = profile
         return request_success(response_data)
 
+
+@CheckRequire
+@csrf_exempt
+def user_search(req: HttpRequest):
+    if req.method != "POST":
+        return BAD_METHOD
+    body = json.loads(req.body)
+    user_message = require(
+        body, "info", "string", err_msg="Missing or error type of [info]"
+    )
+    search_type = require(
+        body, "type", "int", err_msg="Missing or error type of [type]"
+    )
+    if search_type == 0:  # user_id
+        if not User.objects.filter(id=user_message).exists():
+            return request_failed(2, "User not exists", status_code=403)
+        user = User.objects.get(id=user_message)
+        response_data = {
+            "user": UserData(
+                id=user.id,
+                name=user.username,
+                avatar=user.avatar,
+                email=user.userEmail,
+            ).model_dump()
+        }
+        return request_success(response_data)
+    elif search_type == 1:  # user_email
+        if not User.objects.filter(userEmail=user_message).exists():
+            return request_failed(2, "User not exists", status_code=403)
+        user = User.objects.get(userEmail=user_message)
+        response_data = {
+            "user": UserData(
+                id=user.id,
+                name=user.username,
+                avatar=user.avatar,
+                email=user.userEmail,
+            ).model_dump()
+        }
+        return request_success(response_data)
+    else:
+        return BAD_METHOD

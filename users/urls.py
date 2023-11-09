@@ -19,4 +19,5 @@ urlpatterns = [
     path("verify/sendemail", views.sendemail),
     re_path(r"avatar/(?P<hash_code>[a-f0-9]+)?", views.avatar),
     path("profile", views.profile),
+    path("user_search", views.user_search),
 ]
