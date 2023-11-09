@@ -5,6 +5,9 @@ FROM rabbitmq:3.12-management
 
 WORKDIR /app
 
+# refresh secoder cache
+RUN apt update
+
 #install redis
 RUN apt update
 #RUN apt install -y lsb-release curl gpg
