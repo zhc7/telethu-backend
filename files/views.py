@@ -13,7 +13,13 @@ import magic
 
 def check_type(m_type, detected_mime):
     if m_type == 1:  # image
-        if not "png" in detected_mime.lower():
+        if (
+            not "png" in detected_mime.lower()
+            and not "jpeg" in detected_mime.lower()
+            and not "jpg" in detected_mime.lower()
+            and not "gif" in detected_mime.lower()
+            and not "bmp" in detected_mime.lower()
+        ):
             raise ValueError("the file type is not correct")
     elif m_type == 2:  # audio
         if not "mpeg" in detected_mime.lower():
@@ -41,7 +47,7 @@ def load(req: HttpRequest, hash_code: str):
         md5_hash.update(multimedia_content)
         real_md5 = md5_hash.hexdigest()
         if real_md5 != multimedia_md5:
-            return request_failed(2, "the md5 is not correct", status_code=401)
+            return request_failed(2, "the md5 is not correct", status_code=405)
         if Multimedia.objects.filter(multimedia_id=real_md5).exists():
             # if the file exists,do nothing,else download the file
             if not os.path.exists("./files/file_storage"):
@@ -55,7 +61,7 @@ def load(req: HttpRequest, hash_code: str):
                 try:
                     check_type(m_type, detected_mime)
                 except ValueError as e:
-                    return request_failed(2, str(e), status_code=401)
+                    return request_failed(2, str(e), status_code=405)
                 with open(file_path, "wb") as f:
                     f.write(multimedia_content)
             return request_success()
@@ -64,7 +70,7 @@ def load(req: HttpRequest, hash_code: str):
             return request_failed(
                 2,
                 "you can not post the file without claim in websocket",
-                status_code=401,
+                status_code=404,
             )
     elif req.method == "GET":
         user_id = req.user_id  # get the user id
@@ -83,21 +89,41 @@ def load(req: HttpRequest, hash_code: str):
                     if user_id in group.group_members:
                         listener = True
             if not listener:
-                return request_failed(2, "you can not get this file", status_code=401)
+                return request_failed(2, "you can not get this file", status_code=403)
             else:
                 if not os.path.exists("./files/file_storage"):
                     os.mkdir("./files/file_storage")
                 file_path = "./files/file_storage/" + multimedia_md5
                 if not os.path.exists(file_path):
                     return request_failed(
-                        2, "the file is not in the server", status_code=401
+                        2, "the file is not in the server", status_code=405
                     )
                 else:
                     with open(file_path, "rb") as f:
                         multimedia_content = f.read()
                         content = multimedia_content
                     if m_type == 1:  # image
-                        response = HttpResponse(content, content_type="image/png")
+                        # check the type of the file
+                        mime = magic.Magic()
+                        detected_mime = mime.from_buffer(multimedia_content)
+                        if "png" in detected_mime.lower():
+                            response = HttpResponse(content, content_type="image/png")
+                        elif "jpeg" in detected_mime.lower():
+                            response = HttpResponse(
+                                content, content_type="image/jpeg"
+                            )
+                        elif "jpg" in detected_mime.lower():
+                            response = HttpResponse(
+                                content, content_type="image/jpeg"
+                            )
+                        elif "gif" in detected_mime.lower():
+                            response = HttpResponse(content, content_type="image/gif")
+                        elif "bmp" in detected_mime.lower():
+                            response = HttpResponse(content, content_type="image/bmp")
+                        else:
+                            return request_failed(
+                                2, "the file type is not correct", status_code=405
+                            )
                     elif m_type == 2:  # audio
                         response = HttpResponse(content, content_type="audio/mpeg")
                     elif m_type == 3:  # video
@@ -108,10 +134,10 @@ def load(req: HttpRequest, hash_code: str):
                         )
                     else:
                         return request_failed(
-                            2, "the file type is not correct", status_code=401
+                            2, "the file type is not correct", status_code=405
                         )
                     return response
         else:
-            return request_failed(2, "the file hasn't claim", status_code=401)
+            return request_failed(2, "the file hasn't claim", status_code=405)
     else:
         return BAD_METHOD
