@@ -5,6 +5,7 @@ FROM rabbitmq:3.12-management
 
 WORKDIR /app
 
+RUN apt update
 
 #install redis
 RUN apt update
