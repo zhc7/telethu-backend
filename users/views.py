@@ -101,9 +101,6 @@ def logout(req: HttpRequest):
 
     session = SessionData(req)
     session.user_id = None
-
-    user = User.objects.get(id=user_id)
-    user.save()
     return request_success()
 
 
