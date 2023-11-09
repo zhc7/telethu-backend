@@ -1,14 +1,13 @@
-import json
-import os
-from django.http import HttpRequest, FileResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
 import hashlib
-from users.models import User, Friendship
-from files.models import Multimedia
-from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
-from utils.utils_request import request_failed, request_success, BAD_METHOD
-from utils.utils_require import check_require, CheckRequire, require
+import os
+
 import magic
+from django.http import HttpRequest, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+
+from files.models import Multimedia
+from utils.utils_request import request_failed, request_success, BAD_METHOD
+from utils.utils_require import CheckRequire
 
 
 def check_type(m_type, detected_mime):
@@ -22,10 +21,10 @@ def check_type(m_type, detected_mime):
         ):
             raise ValueError("the file type is not correct")
     elif m_type == 2:  # audio
-        if not "mpeg" in detected_mime.lower():
+        if "mpeg" not in detected_mime.lower():
             raise ValueError("the file type is not correct")
     elif m_type == 3:  # video
-        if not "mp4" in detected_mime.lower():
+        if "mp4" not in detected_mime.lower():
             raise ValueError("the file type is not correct")
     elif m_type == 4:  # file
         if not "octet-stream" in detected_mime.lower():
@@ -109,13 +108,9 @@ def load(req: HttpRequest, hash_code: str):
                         if "png" in detected_mime.lower():
                             response = HttpResponse(content, content_type="image/png")
                         elif "jpeg" in detected_mime.lower():
-                            response = HttpResponse(
-                                content, content_type="image/jpeg"
-                            )
+                            response = HttpResponse(content, content_type="image/jpeg")
                         elif "jpg" in detected_mime.lower():
-                            response = HttpResponse(
-                                content, content_type="image/jpeg"
-                            )
+                            response = HttpResponse(content, content_type="image/jpeg")
                         elif "gif" in detected_mime.lower():
                             response = HttpResponse(content, content_type="image/gif")
                         elif "bmp" in detected_mime.lower():
