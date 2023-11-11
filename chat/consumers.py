@@ -1,12 +1,13 @@
 import json
+from typing import Callable, Any
 
 import aio_pika
 from aio_pika.abc import AbstractIncomingMessage
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from users.models import Friendship, GroupList, User
 from files.models import Multimedia
+from users.models import Friendship, GroupList, User
 from utils.ack_manager import AckManager
 from utils.data import (
     MessageType,
@@ -96,7 +97,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             friends_info[friend_id] = friend_info
         return friends_info
 
-    async def send_meta_info(self):
+    async def send_meta_info(self, _: Message = None):
         group_info: dict[int, GroupData] = await self.query_group_info(self.group_list)
         friend_info: dict[int, UserData] = await self.query_friends_info(self.user_id)
         contacts_info: dict[int, ContactsData] = {}
@@ -142,18 +143,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"An error occurred while closing the RabbitMQ connection: {str(e)}")
 
+    async def handle_common_message(self, message_received: Message):
+        if message_received.m_type != MessageType.TEXT:  # multimedia
+            await self.handle_multimedia(message_received)
+        if message_received.t_type == TargetType.FRIEND:
+            await self.send_message_friend(message_received)
+        elif message_received.t_type == TargetType.GROUP:
+            await self.send_message_group(message_received)
+
     async def receive(self, text_data=None, _=None):
-        # 接收来自前端的消息
+        # step 1. parse data
         dict_data = json.loads(text_data)
         print(dict_data)
         if "m_type" not in dict_data:
+            # received a ack message
             ack_received = Ack.model_validate(dict_data)
             await self.ack_manager.acknowledge(ack_received.message_id)
             return
+        # received a normal message
         message_received = Message.model_validate(dict_data)
         print(message_received.model_dump())
-        # 设置user_id
         message_received.sender = self.user_id
+
+        # step 2. give back ack
         tmp_id = message_received.message_id
         print("received tmp_id", tmp_id)
         if tmp_id in self.received:
@@ -165,44 +177,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             return
         message_received.message_id = globalMessageIdMaker.get_id()
-        # TODO: 将 message_received basic_publish 到 connect 当中声明的 exchange 当中
-        message_json = message_received.model_dump_json()
-        await self.storage_exchange.publish(
-            aio_pika.Message(
-                body=message_json.encode(),  # 将消息转换为 bytes
-            ),
-            routing_key="",
-        )
-        # 回传消息给自己
-
-        print("send to storage: ", message_json)
-        match message_received.m_type:
-            case _ if message_received.m_type < MessageType.FUNCTION:
-                if message_received.m_type != MessageType.TEXT:  # multimedia
-                    await self.handle_multimedia(message_received)
-                await self.send_package_direct(message_received, str(self.user_id))
-                if message_received.t_type == TargetType.FRIEND:
-                    await self.send_message_friend(message_received)
-                elif message_received.t_type == TargetType.GROUP:
-                    await self.send_message_group(message_received)
-            case MessageType.FUNC_CREATE_GROUP:
-                await self.create_group(message_received)
-            case MessageType.FUNC_ADD_GROUP_MEMBER:
-                await self.add_group_member(message_received)
-            case MessageType.FUNC_APPLY_FRIEND:
-                await self.apply_friend(message_received)
-            case MessageType.FUNC_ACCEPT_FRIEND:
-                await self.accept_friend(message_received)
-            case MessageType.FUNC_REJECT_FRIEND:
-                await self.reject_friend(message_received)
-            case MessageType.FUNC_BlOCK_FRIEND:
-                await self.block_friend(message_received)
-            case MessageType.FUNC_UNBLOCK_FRIEND:
-                await self.unblock_friend(message_received)
-            case MessageType.FUNC_DEL_FRIEND:
-                await self.delete_friend(message_received)
-            case MessageType.FUN_SEND_META:
-                await self.send_meta_info()
         self.received[tmp_id] = message_received
         await self.send(
             Ack(
@@ -210,6 +184,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 reference=tmp_id,
             ).model_dump_json()
         )
+
+        # step 3. publish message to persistent storage queue
+        message_json = message_received.model_dump_json()
+        await self.storage_exchange.publish(
+            aio_pika.Message(
+                body=message_json.encode(),  # 将消息转换为 bytes
+            ),
+            routing_key="",
+        )
+        print("send to storage: ", message_json)
+
+        # step 4. handle message
+        # to sync across same user's different devices
+        await self.send_package_direct(message_received, str(self.user_id))
+        handler: Callable[[Message], Any] = {
+            MessageType.FUNC_CREATE_GROUP: self.create_group,
+            MessageType.FUNC_ADD_GROUP_MEMBER: self.add_group_member,
+            MessageType.FUNC_APPLY_FRIEND: self.apply_friend,
+            MessageType.FUNC_ACCEPT_FRIEND: self.accept_friend,
+            MessageType.FUNC_REJECT_FRIEND: self.reject_friend,
+            MessageType.FUNC_BlOCK_FRIEND: self.block_friend,
+            MessageType.FUNC_UNBLOCK_FRIEND: self.unblock_friend,
+            MessageType.FUNC_DEL_FRIEND: self.delete_friend,
+            MessageType.FUN_SEND_META: self.send_meta_info,
+        }.get(message_received.m_type, self.handle_common_message)
+        await handler(message_received)
 
     async def chat_message(self, message_sent: Message):
         await self.send(
@@ -311,7 +311,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.chat_message(message)
 
     async def send_package_direct(
-            self, message: Message, receiver: str
+        self, message: Message, receiver: str
     ):  # 无论是什么，总会将一个package发送进direct queue
         message_json = message.model_dump_json()
         # 发送消息给rabbitmq
@@ -343,7 +343,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not isinstance(message.content.members, list):
             return None
         if len(message.content.members) == 0 and not isinstance(
-                message.content.members[0], int
+            message.content.members[0], int
         ):
             return None
         # 建群
@@ -471,9 +471,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.sender = self.user_id
         friendship_now, message.content = await self.friendship(self.user_id, friend_id)
         if (
-                friendship_now == FriendType.relationship_not_exist
-                or friendship_now == FriendType.already_been_reject
-                or friendship_now == FriendType.already_reject_friend
+            friendship_now == FriendType.relationship_not_exist
+            or friendship_now == FriendType.already_been_reject
+            or friendship_now == FriendType.already_reject_friend
         ):
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))  # 发送消息给对方
@@ -507,11 +507,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.sender = self.user_id
         friendship_now, message.content = await self.friendship(self.user_id, friend_id)
         if (
-                friendship_now == FriendType.already_friend
-                or friendship_now == FriendType.already_receive_apply
-                or friendship_now == FriendType.already_send_apply
-                or friendship_now == FriendType.already_reject_friend
-                or friendship_now == FriendType.already_been_reject
+            friendship_now == FriendType.already_friend
+            or friendship_now == FriendType.already_receive_apply
+            or friendship_now == FriendType.already_send_apply
+            or friendship_now == FriendType.already_reject_friend
+            or friendship_now == FriendType.already_been_reject
         ):
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))
@@ -544,19 +544,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if t_type == TargetType.FRIEND:  # IF FRIEND
             # if exist
             if Multimedia.objects.filter(multimedia_id=md5).exists():
-                Multimedia.objects.filter(multimedia_id=md5).first().multimedia_user_listener.add(user_or_group)
-                Multimedia.objects.filter(multimedia_id=md5).first().multimedia_user_listener.add(self.user_id)
+                Multimedia.objects.filter(
+                    multimedia_id=md5
+                ).first().multimedia_user_listener.add(user_or_group)
+                Multimedia.objects.filter(
+                    multimedia_id=md5
+                ).first().multimedia_user_listener.add(self.user_id)
             else:
-                multimedia = Multimedia.objects.create(multimedia_id=md5, multimedia_type=m_type)
+                multimedia = Multimedia.objects.create(
+                    multimedia_id=md5, multimedia_type=m_type
+                )
                 multimedia.multimedia_user_listener.add(user_or_group)
                 multimedia.multimedia_user_listener.add(self.user_id)
                 multimedia.save()
         elif t_type == TargetType.GROUP:  # IF GROUP
             # if exist
             if Multimedia.objects.filter(multimedia_id=md5).exists():
-                Multimedia.objects.filter(multimedia_id=md5).first().multimedia_group_listener.add(user_or_group)
+                Multimedia.objects.filter(
+                    multimedia_id=md5
+                ).first().multimedia_group_listener.add(user_or_group)
             else:
-                multimedia = Multimedia.objects.create(multimedia_id=md5, multimedia_type=m_type)
+                multimedia = Multimedia.objects.create(
+                    multimedia_id=md5, multimedia_type=m_type
+                )
                 multimedia.multimedia_group_listener.add(user_or_group)
                 multimedia.save()
         return
