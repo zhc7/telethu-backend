@@ -77,14 +77,12 @@ def load(req: HttpRequest, hash_code: str):
             multimedia = Multimedia.objects.get(multimedia_id=multimedia_md5)
             m_type = multimedia.multimedia_type
             user_list = multimedia.multimedia_user_listener
-            group_list = multimedia.multimedia_group_listener
             listener = False
             if user_list is not None and user_list.filter(id=user_id).exists():
                 listener = True
-            if group_list is not None:
-                groups = group_list.all()
-                for group in groups:
-                    if user_id in group.group_members:
+            for group in multimedia.multimedia_group_listener.all():
+                for user in group.group_members.all():
+                    if user_id == user.id:
                         listener = True
             if not listener:
                 return request_failed(2, "you can not get this file", status_code=403)

@@ -30,7 +30,7 @@ class User(models.Model):
         }
 
     def __str__(self):
-        return self.username
+        return str(self.id)
 
 
 class Friendship(models.Model):  # 好友关系
