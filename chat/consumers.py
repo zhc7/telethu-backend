@@ -156,7 +156,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         dict_data = json.loads(text_data)
         print(dict_data)
         if "m_type" not in dict_data:
-            # received a ack message
+            # received an ack message
             ack_received = Ack.model_validate(dict_data)
             await self.ack_manager.acknowledge(ack_received.message_id)
             return
@@ -275,24 +275,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.get_create_massage(message)
                 await self.ack_manager.acknowledge(message.message_id)
             case MessageType.FUNC_ADD_GROUP_MEMBER:
-                # 如果是刚刚被添加的人
-                if str(message.receiver) == str(self.user_id):
-                    await self.get_create_massage(message)
-                    await self.ack_manager.acknowledge(message.message_id)
-                else:
-                    # 给群聊列表增加人
-                    group_id = message.content
-                    if group_id not in self.group_list:
-                        print(
-                            "group_id not in self.group_list,there is bug in callback"
-                        )
-                        print("group_id: ", group_id)
-                        print("self.group_list: ", self.group_list)
-                        print("self.user_id: ", self.user_id)
-                    else:
-                        self.group_members[group_id].append(message.receiver)
-                        # 发送消息给前端
-                        await self.chat_message(message)
+                await self.get_create_massage(message)
+                await self.ack_manager.acknowledge(message.message_id)
             case MessageType.FUNC_APPLY_FRIEND:
                 await self.chat_message(message)
             case MessageType.FUNC_ACCEPT_FRIEND:
@@ -354,6 +338,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         group = await self.build_group(group_name, group_members)
         message.content.id = group.group_id  # set receiver to group id
+        message.content.avatar = group.group_avatar
         # 通知每个成员
         for member in group_members:
             await self.send_package_direct(message, str(member))
@@ -371,22 +356,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_member_id = []
         for member in group_member:
             group_member_id.append(member.id)
-        return group_member_id
+        return group_member_id, group.group_id, group.group_name, group.group_avatar
 
     async def add_group_member(self, message: Message):
         # 数据库加好友了，
-        group_id = message.content.id
-        add_member = message.receiver
-        group_member = await self.add_member(group_id, add_member)
-        message.content.members.append(add_member)
+        group_id = message.content
+        add_member = message.info  # list
+        group_members, group_id, group_name, group_avatar = await self.add_member(
+            group_id, add_member
+        )
+        group_data = GroupData(
+            id=group_id,
+            name=group_name,
+            avatar=group_avatar,
+            category="group",
+            members=group_members,
+        )
+        message.content = group_data
         # 通知每个成员
-        if group_member is None:
+        if group_data.members is None:
             return
-        for member in group_member:
+        for member in group_data.members:
             await self.send_package_direct(message, str(member))
 
     async def send_message_group(self, message: Message):
-        # 找到合适的exchange
         group_member = self.group_members[message.receiver]  # receiver is group id
         for member in group_member:
             await self.send_package_direct(message, str(member))
@@ -497,7 +490,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.sender = self.user_id
         friendship_now, message.content = await self.friendship(self.user_id, friend_id)
         if friendship_now == FriendType.already_receive_apply:
-            message.content = "Success"
+            message.content = "Success reject"
             await self.send_package_direct(message, str(friend_id))
             await self.friendship_change(self.user_id, friend_id, 3)
         await self.send_package_direct(message, str(self.user_id))
@@ -533,7 +526,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.sender = self.user_id
         friendship_now, message.content = await self.friendship(self.user_id, friend_id)
         if friendship_now == FriendType.already_friend:
-            message.content = "Success"
+            message.content = "Success delete"
             await self.send_package_direct(message, str(friend_id))
             await self.friendship_change(self.user_id, friend_id, 3)
             self.friend_list.remove(friend_id)

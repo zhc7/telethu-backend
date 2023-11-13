@@ -43,7 +43,7 @@ def chat_history(request):
             Q((Q(sender=id_value) & Q(receiver=user_id)))
             | Q((Q(receiver=id_value) & Q(sender=user_id))),
             time__lt=from_value,
-            t_type=t_type
+            t_type=t_type,
         ).order_by("-time")[:num_value]
         print("messages: ", messages)
     messages_list = []
