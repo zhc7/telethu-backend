@@ -1,5 +1,4 @@
 from django.db import models
-from threading import Lock
 
 
 class User(models.Model):
@@ -11,7 +10,7 @@ class User(models.Model):
     userEmail = models.EmailField(unique=True, max_length=128)
     avatar = models.CharField(
         max_length=256,
-        default="https://images.unsplash.com/photo-1642921131008-b13897b36d17?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8JUU2JUI4JTg1JUU1JThEJThFJUU1JUE0JUE3JUU1JUFEJUE2fGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+        default="0fd03cd9d6148606533a492937848465",
     )
     created_time = models.DateTimeField(auto_now_add=True)
     verification = models.BooleanField(default=False)
@@ -57,7 +56,7 @@ class GroupList(models.Model):
     created_time = models.DateTimeField(auto_now_add=True)
     group_avatar = models.CharField(
         max_length=256,
-        default="https://images.unsplash.com/photo-1642921131008-b13897b36d17?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8JUU2JUI4JTg1JUU1JThEJThFJUU1JUE0JUE3JUU1JUFEJUE2fGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+        default="0fd03cd9d6148606533a492937848465",
     )
     group_members = models.ManyToManyField(User, related_name="group_members")
     # 群主管理员之后再加

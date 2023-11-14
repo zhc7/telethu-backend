@@ -197,7 +197,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # step 4. handle message
         # to sync across same user's different devices
-        await self.send_package_direct(message_received, str(self.user_id))
         handler: Callable[[Message], Any] = {
             MessageType.FUNC_CREATE_GROUP: self.create_group,
             MessageType.FUNC_ADD_GROUP_MEMBER: self.add_group_member,
@@ -318,9 +317,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group = GroupList.objects.create(
             group_id=globalIdMaker.get_id(), group_name=group_name
         )
-        group.group_members.set(group_members)
+        for member in group_members:
+            if member in self.friend_list or member == self.user_id:
+                group.group_members.add(member)
         group.save()
-        return group
+        id_list = []
+        for member in group.group_members.all():
+            id_list.append(member.id)
+        return group, id_list
+
+    @database_sync_to_async
+    def from_id_to_meta(self, id_list):
+        users_info = []
+        for user_id in id_list:
+            user = User.objects.filter(id=user_id).first()
+            user_info = UserData(
+                id=user.id,
+                name=user.username,
+                avatar=user.avatar,
+                email=user.userEmail,
+            )
+            users_info.append(user_info)
+        return users_info
 
     async def create_group(self, message: Message):
         # 确保group_members是list[int],以后搬到鉴权里面
@@ -335,49 +353,54 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content.members = [self.user_id] + message.content.members
         group_name = message.content.name
         group_members = message.content.members
-
-        group = await self.build_group(group_name, group_members)
+        group, user_list = await self.build_group(group_name, group_members)
         message.content.id = group.group_id  # set receiver to group id
         message.content.avatar = group.group_avatar
-        # 通知每个成员
-        for member in group_members:
-            await self.send_package_direct(message, str(member))
+        message.content.members = await self.from_id_to_meta(user_list)
+        for member in message.content.members:
+            await self.send_package_direct(message, str(member.id))
 
     @database_sync_to_async
     def add_member(self, group_id, add_member):
         group = GroupList.objects.filter(group_id=group_id).first()
+        if group is None:
+            print("group not exist")
+            return None, None
         # 判断自己是否在群里，不在就加不了人
         user = User.objects.filter(id=self.user_id).first()
         if user not in group.group_members.all():
-            return None
-        group.group_members.add(add_member)
+            print("user not in group")
+            return None, None
+        # 判断被加的是否是好友
+        for member in add_member:
+            if member in self.friend_list:
+                group.group_members.add(member)
         group.save()
-        group_member = group.group_members.all()
-        group_member_id = []
-        for member in group_member:
-            group_member_id.append(member.id)
-        return group_member_id, group.group_id, group.group_name, group.group_avatar
+        id_list = []
+        for member in group.group_members.all():
+            id_list.append(member.id)
+        return group, id_list
 
     async def add_group_member(self, message: Message):
+        # 确保group_members是list[int],以后搬到鉴权里面
+        if not isinstance(message.content.members, list):
+            return None
+        if len(message.content.members) == 0 and not isinstance(
+            message.content.members[0], int
+        ):
+            return None
         # 数据库加好友了，
-        group_id = message.content
-        add_member = message.info  # list
-        group_members, group_id, group_name, group_avatar = await self.add_member(
-            group_id, add_member
-        )
-        group_data = GroupData(
-            id=group_id,
-            name=group_name,
-            avatar=group_avatar,
-            category="group",
-            members=group_members,
-        )
-        message.content = group_data
-        # 通知每个成员
-        if group_data.members is None:
-            return
-        for member in group_data.members:
-            await self.send_package_direct(message, str(member))
+        group_id = message.receiver
+        group_members = message.content.members
+        group, user_list = await self.add_member(group_id, group_members)
+        if group is None:
+            return None
+        message.content.members = await self.from_id_to_meta(user_list)
+        message.content.id = group.group_id
+        message.content.name = group.group_name
+        message.content.avatar = group.group_avatar
+        for member in message.content.members:
+            await self.send_package_direct(message, str(member.id))
 
     async def send_message_group(self, message: Message):
         group_member = self.group_members[message.receiver]  # receiver is group id
@@ -391,11 +414,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.group_list.append(group_id)
             self.group_members[group_id] = []
             self.group_names[group_id] = message.content.name
-            self.group_members[group_id] = message.content.members
+            for member in message.content.members:
+                self.group_members[group_id].append(member.id)
         else:
             for member in message.content.members:
-                if member not in self.group_members[group_id]:
-                    self.group_members[group_id].append(member)
+                if member.id not in self.group_members[group_id]:
+                    self.group_members[group_id].append(member.id)
             self.group_names[group_id] = message.content.name
             # 发送消息给前端
         await self.chat_message(message)
