@@ -1,9 +1,9 @@
 import hashlib
 import json
 import os
-from django.http import HttpRequest, JsonResponse, HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from users.models import User, Friendship
+from users.models import User
 from utils.data import UserData
 from users.email import email_sender
 from utils.session import SessionData
@@ -189,7 +189,7 @@ def get_you_apply_list(req: HttpRequest):
 
 @CheckRequire
 @csrf_exempt
-def verification(req: HttpRequest, signed_data):
+def verification(signed_data):
     print("Your are in verification! ")
     data = loads(signed_data)
     user_id = data["user_id"]
@@ -212,12 +212,11 @@ def verification(req: HttpRequest, signed_data):
 def sendemail(req: HttpRequest):
     if req.method != "POST":
         return BAD_METHOD
-
     # 检查请求体
-    id = req.user_id
-    user = User.objects.get(id=id)
+    use_id = req.user_id
+    user = User.objects.get(id=use_id)
     email = user.userEmail
-    email_sender(req, email, id)
+    email_sender(req, email, use_id)
 
 
 @CheckRequire
@@ -275,8 +274,8 @@ def profile(req: HttpRequest):
     elif req.method == "GET":
         user_id = req.user_id
         user = User.objects.get(id=user_id)
-        profile = user.profile
-        response_data = profile
+        user_profile = user.profile
+        response_data = user_profile
         return request_success(response_data)
 
 
@@ -296,27 +295,18 @@ def user_search(req: HttpRequest):
         if not User.objects.filter(id=user_message).exists():
             return request_failed(2, "User not exists", status_code=403)
         user = User.objects.get(id=user_message)
-        response_data = {
-            "user": UserData(
-                id=user.id,
-                name=user.username,
-                avatar=user.avatar,
-                email=user.userEmail,
-            ).model_dump()
-        }
-        return request_success(response_data)
     elif search_type == 1:  # user_email
         if not User.objects.filter(userEmail=user_message).exists():
             return request_failed(2, "User not exists", status_code=403)
         user = User.objects.get(userEmail=user_message)
-        response_data = {
-            "user": UserData(
-                id=user.id,
-                name=user.username,
-                avatar=user.avatar,
-                email=user.userEmail,
-            ).model_dump()
-        }
-        return request_success(response_data)
     else:
         return BAD_METHOD
+    response_data = {
+        "user": UserData(
+            id=user.id,
+            name=user.username,
+            avatar=user.avatar,
+            email=user.userEmail,
+        ).model_dump()
+    }
+    return request_success(response_data)
