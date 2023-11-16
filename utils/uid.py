@@ -9,10 +9,12 @@ class IdMaker:
 
     def late_init(self):
         # 查找当前数据库中最大的 id，包括group_id和user_id
-        max_id = max(User.objects.all().values_list('id', flat=True) or [0])
+        max_id = max(User.objects.all().values_list("id", flat=True) or [0])
         if max_id is None:
             max_id = 0
-        max_group_id = max(GroupList.objects.all().values_list('group_id', flat=True) or [0])
+        max_group_id = max(
+            GroupList.objects.all().values_list("group_id", flat=True) or [0]
+        )
         if max_group_id is None:
             max_group_id = 0
         self.id = max(max_id, max_group_id)
@@ -35,7 +37,9 @@ class MessageIdMaker:
 
     def late_init(self):
         # 查找当前数据库中最大的 id，包括group_id和user_id
-        max_id = max(MessageList.objects.all().values_list('message_id', flat=True) or [0])
+        max_id = max(
+            MessageList.objects.all().values_list("message_id", flat=True) or [0]
+        )
         if max_id is None:
             max_id = 0
         self.id = max_id

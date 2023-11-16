@@ -5,6 +5,19 @@ import aio_pika
 from aio_pika.abc import AbstractIncomingMessage
 from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
+from utils.db_fun import (
+    db_query_group_info,
+    db_query_friends,
+    db_query_friends_info,
+    db_build_group,
+    db_from_id_to_meta,
+    db_friendship,
+    db_add_member,
+    db_friendship_change,
+    db_create_multimedia,
+    db_query_group,
+    db_add_read_message,
+)
 
 from files.models import Multimedia
 from users.models import Friendship, GroupList, User, MessageList
@@ -45,7 +58,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 获取当前用户
         self.user_id = self.scope["user_id"]
         print("user id we get in connect is: ", self.user_id)
-        # TODO: 建立一个全新的队列以及与它配套的 exchange，在 permanent_storage 当中进行接收
         # 和 相应的队列
         self.rabbitmq_connection = await aio_pika.connect_robust("amqp://localhost")
         self.channel = await self.rabbitmq_connection.channel()
@@ -130,28 +142,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content.members = [self.user_id] + message.content.members
         group_name = message.content.name
         group_members = message.content.members
-        group, user_list = await self.build_group(group_name, group_members)
+        group, user_list = await db_build_group(
+            self.friend_list, self.user_id, group_name, group_members
+        )
         message.content.id = group.group_id  # set receiver to group id
         message.content.avatar = group.group_avatar
-        message.content.members = await self.from_id_to_meta(user_list)
+        message.content.members = await db_from_id_to_meta(user_list)
         for member in message.content.members:
             await self.send_package_direct(message, str(member.id))
 
     async def add_group_member(self, message: Message):
-        # 确保group_members是list[int],以后搬到鉴权里面
         if not isinstance(message.content.members, list):
             return None
         if len(message.content.members) == 0 and not isinstance(
             message.content.members[0], int
         ):
             return None
-        # 数据库加好友了，
         group_id = message.receiver
         group_members = message.content.members
-        group, user_list = await self.add_member(group_id, group_members)
+        group, user_list = await db_add_member(
+            self.user_id, self.friend_list, group_id, group_members
+        )
         if group is None:
             return None
-        message.content.members = await self.from_id_to_meta(user_list)
+        message.content.members = await db_from_id_to_meta(user_list)
         message.content.id = group.group_id
         message.content.name = group.group_name
         message.content.avatar = group.group_avatar
@@ -161,43 +175,42 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def apply_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
-        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if (
             friendship_now == FriendType.relationship_not_exist
             or friendship_now == FriendType.already_been_reject
             or friendship_now == FriendType.already_reject_friend
         ):
             message.content = "Success"
-            await self.send_package_direct(message, str(friend_id))  # 发送消息给对方
-            await self.friendship_change(self.user_id, friend_id, 0)
-
+            await self.send_package_direct(message, str(friend_id))
+            await db_friendship_change(self.user_id, friend_id, 0)
         await self.send_package_direct(message, str(self.user_id))
 
     async def accept_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
-        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if friendship_now == FriendType.already_receive_apply:
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))
-            await self.friendship_change(self.user_id, friend_id, 1)
+            await db_friendship_change(self.user_id, friend_id, 1)
         self.friend_list.append(friend_id)
         await self.send_package_direct(message, str(self.user_id))
 
     async def reject_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
-        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if friendship_now == FriendType.already_receive_apply:
             message.content = "Success reject"
             await self.send_package_direct(message, str(friend_id))
-            await self.friendship_change(self.user_id, friend_id, 3)
+            await db_friendship_change(self.user_id, friend_id, 3)
         await self.send_package_direct(message, str(self.user_id))
 
     async def block_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
-        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if (
             friendship_now == FriendType.already_friend
             or friendship_now == FriendType.already_receive_apply
@@ -207,33 +220,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
         ):
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))
-            await self.friendship_change(self.user_id, friend_id, 2)
+            await db_friendship_change(self.user_id, friend_id, 2)
         await self.send_package_direct(message, str(self.user_id))
 
     async def unblock_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
-        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if friendship_now == FriendType.already_block_friend:
             message.content = "Success"
             await self.send_package_direct(message, str(friend_id))
-            await self.friendship_change(self.user_id, friend_id, 3)
+            await db_friendship_change(self.user_id, friend_id, 3)
         await self.send_package_direct(message, str(self.user_id))
 
     async def delete_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
-        friendship_now, message.content = await self.friendship(self.user_id, friend_id)
+        friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if friendship_now == FriendType.already_friend:
             message.content = "Success delete"
             await self.send_package_direct(message, str(friend_id))
-            await self.friendship_change(self.user_id, friend_id, 3)
+            await db_friendship_change(self.user_id, friend_id, 3)
             self.friend_list.remove(friend_id)
         await self.send_package_direct(message, str(self.user_id))
 
     async def send_meta_info(self, _: Message = None):
-        group_info: dict[int, GroupData] = await self.query_group_info(self.group_list)
-        friend_info: dict[int, UserData] = await self.query_friends_info(self.user_id)
+        group_info: dict[int, GroupData] = await db_query_group_info(self.group_list)
+        friends_id = await db_query_friends(self.user_id)
+        friend_info: dict[int, UserData] = await db_query_friends_info(friends_id)
         contacts_info: dict[int, ContactsData] = {}
         contacts_info.update(group_info)
         contacts_info.update(friend_info)
@@ -242,7 +256,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def read_message(self, message: Message):
         message_id = int(message.content)
-        message_sender,message_receiver,message_t_type = await self.add_read_message(message_id, self.user_id)
+        message_sender, message_receiver, message_t_type = await db_add_read_message(
+            self.group_list, message_id, self.user_id
+        )
         if type(message_sender) == int:
             message.receiver = message_receiver
             message.t_type = message_t_type
@@ -266,11 +282,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         md5 = message.content
         t_type = message.t_type
         user_or_group = message.receiver
-        await self.create_multimedia(m_type, md5, t_type, user_or_group)
+        await db_create_multimedia(self.user_id, m_type, md5, t_type, user_or_group)
 
     async def callback(self, body: AbstractIncomingMessage):
         message = Message.model_validate_json(body.body.decode())
-
         ack_callback = body.channel.basic_ack(delivery_tag=body.delivery_tag)
 
         async def push_message(retry=self.retry):
@@ -333,47 +348,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             text_data=message_sent.model_dump_json()
         )  # send message to front no matter if it is user own message
 
-    @database_sync_to_async
-    def query_group_info(self, group_id_list) -> dict[int, GroupData]:
-        # 这个方法执行同步数据库查询
-        group_info = {}
-        for group_id in group_id_list:
-            group = GroupList.objects.filter(group_id=group_id).first()
-            group_date = GroupData(
-                id=group.group_id,
-                name=group.group_name,
-                avatar=group.group_avatar,
-                members=[],
-            )
-            users_info = []
-            for user in group.group_members.all():
-                user_info = UserData(
-                    id=user.id,
-                    name=user.username,
-                    avatar=user.avatar,
-                    email=user.userEmail,
-                )
-                users_info.append(user_info)
-            group_date.members = users_info
-            group_info[group_id] = group_date
-        return group_info
-
-    @database_sync_to_async
-    def query_friends_info(self, user_id) -> dict[int, UserData]:
-        # 这个方法执行同步数据库查询
-        friends_id = self._query_friends(user_id)
-        friends_info = {}
-        for friend_id in friends_id:
-            friend = User.objects.filter(id=friend_id).first()
-            friend_info = UserData(
-                id=friend.id,
-                name=friend.username,
-                avatar=friend.avatar,
-                email=friend.userEmail,
-            )
-            friends_info[friend_id] = friend_info
-        return friends_info
-
     async def start_consuming(self):
         # 使用 Exchange 对象来声明交换机
         exchange_name = "user_" + str(self.user_id)  # name it after user_id
@@ -384,9 +358,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         # 获取好友列表
-        self.friend_list = await self.query_friends(self.user_id)
+        self.friend_list = await db_query_friends(self.user_id)
         # 获取群聊列表
-        self.group_list, self.group_members, self.group_names = await self.query_group()
+        self.group_list, self.group_members, self.group_names = await db_query_group(
+            self.user_id
+        )
 
         # 建立queue
         queue_name_receive = self.scope["session"]["browser"]
@@ -410,22 +386,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.rabbitmq_connection.close()
         except Exception as e:
             print(f"An error occurred while closing the RabbitMQ connection: {str(e)}")
-
-    @staticmethod
-    def _query_friends(user_id):
-        # 这个方法执行同步数据库查询
-        friends = Friendship.objects.filter(user1=user_id)
-        friends = friends | Friendship.objects.filter(user2=user_id)
-        friends_id = []
-        for friend in friends:
-            if friend.state == 1:
-                if str(friend.user1.id) == str(user_id):
-                    friend_id = friend.user2.id
-                else:
-                    friend_id = friend.user1.id
-                if friend_id not in friends_id:
-                    friends_id.append(friend_id)
-        return friends_id
 
     async def send_package_direct(
         self, message: Message, receiver: str
@@ -452,177 +412,3 @@ class ChatConsumer(AsyncWebsocketConsumer):
         for member in group_member:
             await self.send_package_direct(message, str(member))
         await self.send_package_direct(message, str(self.user_id))
-
-    @database_sync_to_async
-    def build_group(self, group_name, group_members):
-        group = GroupList.objects.create(
-            group_id=globalIdMaker.get_id(), group_name=group_name
-        )
-        for member in group_members:
-            if member in self.friend_list or member == self.user_id:
-                group.group_members.add(member)
-        group.save()
-        id_list = []
-        for member in group.group_members.all():
-            id_list.append(member.id)
-        return group, id_list
-
-    @database_sync_to_async
-    def from_id_to_meta(self, id_list):
-        users_info = []
-        for user_id in id_list:
-            user = User.objects.filter(id=user_id).first()
-            user_info = UserData(
-                id=user.id,
-                name=user.username,
-                avatar=user.avatar,
-                email=user.userEmail,
-            )
-            users_info.append(user_info)
-        return users_info
-
-    @database_sync_to_async
-    def friendship(self, user_id, friend_id):
-        friendship = None
-        # 排除自我添加
-        if user_id == friend_id:
-            return FriendType.user_equal_friend
-        user = User.objects.filter(id=user_id).first()
-        friend = User.objects.filter(id=friend_id).first()
-        if friend is None:
-            return FriendType.friend_not_exist, "friend_not_exist"
-        # 检查是否已经是好友
-        if user.user1_friendships.filter(user2=friend).exists():
-            friendship = user.user1_friendships.get(user2=friend)
-        elif user.user2_friendships.filter(user1=friend).exists():
-            friendship = user.user2_friendships.get(user1=friend)
-        if friendship is not None:
-            if friendship.state == 1:
-                return FriendType.already_friend, "already_friend"
-            elif friendship.state == 0 and friendship.user1 == user:
-                return FriendType.already_send_apply, "already_send_apply"
-            elif friendship.state == 0 and friendship.user2 == user:
-                return FriendType.already_receive_apply, "already_receive_apply"
-            elif friendship.state == 2 and friendship.user1 == user:
-                return FriendType.already_block_friend, "already_block_friend"
-            elif friendship.state == 2 and friendship.user2 == user:
-                return FriendType.already_been_block, "already_been_block"
-            elif friendship.state == 3 and friendship.user1 == user:
-                return FriendType.already_reject_friend, "already_reject_friend"
-            elif friendship.state == 3 and friendship.user2 == user:
-                return FriendType.already_been_reject, "already_been_reject"
-        else:
-            return FriendType.relationship_not_exist, "relationship_not_exist"
-
-    @database_sync_to_async
-    def add_member(self, group_id, add_member):
-        group = GroupList.objects.filter(group_id=group_id).first()
-        if group is None:
-            print("group not exist")
-            return None, None
-        # 判断自己是否在群里，不在就加不了人
-        user = User.objects.filter(id=self.user_id).first()
-        if user not in group.group_members.all():
-            print("user not in group")
-            return None, None
-        # 判断被加的是否是好友
-        for member in add_member:
-            if member in self.friend_list:
-                group.group_members.add(member)
-        group.save()
-        id_list = []
-        for member in group.group_members.all():
-            id_list.append(member.id)
-        return group, id_list
-
-    @database_sync_to_async
-    def friendship_change(self, user_id, friend_id, state):
-        friendship = None
-        # 排除自我添加
-        if user_id == friend_id:
-            return FriendType.user_equal_friend
-        user = User.objects.filter(id=user_id).first()
-        friend = User.objects.filter(id=friend_id).first()
-        # 检查是否已经是好友
-        if user.user1_friendships.filter(user2=friend).exists():
-            friendship = user.user1_friendships.get(user2=friend)
-        elif user.user2_friendships.filter(user1=friend).exists():
-            friendship = user.user2_friendships.get(user1=friend)
-        if friendship is not None:
-            friendship.state = state
-            friendship.user1 = user
-            friendship.user2 = friend
-            friendship.save()
-            return True
-        else:
-            friendship = Friendship.objects.create(
-                user1=user, user2=friend, state=state
-            )
-            friendship.save()
-            return True
-
-    @database_sync_to_async
-    def create_multimedia(self, m_type, md5, t_type, user_or_group):
-        if t_type == TargetType.FRIEND:  # IF FRIEND
-            # if exist
-            if Multimedia.objects.filter(multimedia_id=md5).exists():
-                Multimedia.objects.filter(
-                    multimedia_id=md5
-                ).first().multimedia_user_listener.add(user_or_group)
-                Multimedia.objects.filter(
-                    multimedia_id=md5
-                ).first().multimedia_user_listener.add(self.user_id)
-            else:
-                multimedia = Multimedia.objects.create(
-                    multimedia_id=md5, multimedia_type=m_type
-                )
-                multimedia.multimedia_user_listener.add(user_or_group)
-                multimedia.multimedia_user_listener.add(self.user_id)
-                multimedia.save()
-        elif t_type == TargetType.GROUP:  # IF GROUP
-            # if exist
-            if Multimedia.objects.filter(multimedia_id=md5).exists():
-                Multimedia.objects.filter(
-                    multimedia_id=md5
-                ).first().multimedia_group_listener.add(user_or_group)
-            else:
-                multimedia = Multimedia.objects.create(
-                    multimedia_id=md5, multimedia_type=m_type
-                )
-                multimedia.multimedia_group_listener.add(user_or_group)
-                multimedia.save()
-        return
-
-    @database_sync_to_async
-    def query_friends(self, user_id):
-        return self._query_friends(user_id)
-
-    @database_sync_to_async
-    def query_group(self):
-        # 这个方法执行同步数据库查询
-        groups = GroupList.objects.filter(group_members=self.user_id)
-        group_id = []
-        group_names = {}
-        group_members = {}
-        for group in groups:
-            group_id.append(group.group_id)
-            group_members_user = group.group_members.all()
-            group_members_id = []
-            for user in group_members_user:
-                group_members_id.append(user.id)
-            group_members[group.group_id] = group_members_id
-            group_names[group.group_id] = group.group_name
-        return group_id, group_members, group_names
-
-    @database_sync_to_async
-    def add_read_message(self, message_id, user_id):
-        message = MessageList.objects.filter(message_id=message_id).first()
-        if message is None:
-            return "no such message" , None,None
-        print(message.receiver, user_id, self.group_list)
-        if message.receiver != user_id and message.receiver not in self.group_list:
-            return "you cannot read this message" ,None,None
-        else:
-            message.who_read.add(user_id)
-            message.save()
-            return message.sender , message.receiver , message.t_type

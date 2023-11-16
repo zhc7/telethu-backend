@@ -17,7 +17,9 @@ def storage_callback(ch, method, properties, body):
         t_type=message.t_type,
         time=message.time,
         content=json.dumps(
-            message.content if not isinstance(message.content, ContactsData) else message.content.model_dump()
+            message.content
+            if not isinstance(message.content, ContactsData)
+            else message.content.model_dump()
         ),
         sender=message.sender,
         receiver=message.receiver,
@@ -31,7 +33,9 @@ def storage_callback(ch, method, properties, body):
 def start_storage():
     while True:
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host="localhost")
+            )
             break
         except pika.exceptions.AMQPConnectionError:
             print("storage connection failed, retrying...")

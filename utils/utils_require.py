@@ -8,13 +8,20 @@ MAX_CHAR_LENGTH = 255
 # And err_code == -1 denotes "Error in request URL parsing"
 def require(body, key, types="string", err_msg=None, err_code=401):
     if key not in body.keys():
-        raise KeyError(err_msg if err_msg is not None
-                       else f"Invalid parameters. Expected `{key}`, but not found.", err_code)
+        raise KeyError(
+            err_msg
+            if err_msg is not None
+            else f"Invalid parameters. Expected `{key}`, but not found.",
+            err_code,
+        )
 
     val = body[key]
 
-    err_msg = f"Invalid parameters. Expected `{key}` to be `{types}` type." \
-        if err_msg is None else err_msg
+    err_msg = (
+        f"Invalid parameters. Expected `{key}` to be `{types}` type."
+        if err_msg is None
+        else err_msg
+    )
 
     if types == "int":
         try:
