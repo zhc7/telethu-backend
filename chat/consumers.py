@@ -91,14 +91,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         # step 3. publish message to persistent storage queue
-        message_json = message_received.model_dump_json()
-        await self.storage_exchange.publish(
-            aio_pika.Message(
-                body=message_json.encode(),  # 将消息转换为 bytes
-            ),
-            routing_key="",
-        )
-        print("send to storage: ", message_json)
+        if message_received.m_type != MessageType.READ_MESSAGE:
+            message_json = message_received.model_dump_json()
+            await self.storage_exchange.publish(
+                aio_pika.Message(
+                    body=message_json.encode(),  # 将消息转换为 bytes
+                ),
+                routing_key="",
+            )
+            print("send to storage: ", message_json)
 
         # step 4. handle message
         # to sync across same user's different devices
@@ -240,9 +241,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(contacts_info))
 
     async def read_message(self, message: Message):
-        message_id = message.content
-        message_sender = await self.add_read_message(message_id, self.user_id)
+        message_id = int(message.content)
+        message_sender,message_receiver = await self.add_read_message(message_id, self.user_id)
         if type(message_sender) == int:
+            message.receiver = message_receiver
             await self.send_package_direct(message, str(self.user_id))
             await self.send_package_direct(message, str(message_sender))
         else:
@@ -614,11 +616,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def add_read_message(self, message_id, user_id):
         message = MessageList.objects.filter(message_id=message_id).first()
         if message is None:
-            return "no such message"
+            return "no such message" , None
         print(message.receiver, user_id, self.group_list)
         if message.receiver != user_id and message.receiver not in self.group_list:
-            return "you cannot read this message"
+            return "you cannot read this message" ,None
         else:
             message.who_read.add(user_id)
             message.save()
-            return message.sender
+            return message.sender , message.receiver
