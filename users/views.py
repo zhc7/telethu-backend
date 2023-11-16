@@ -14,6 +14,7 @@ from utils.utils_require import check_require, CheckRequire, require
 from django.core.signing import loads
 import magic
 
+
 def Authentication(req: HttpRequest):
     # 检查请求方法
     if req.method != "POST":
@@ -34,11 +35,11 @@ def Authentication(req: HttpRequest):
 @CheckRequire
 @csrf_exempt  # 关闭csrf验证
 def login(req: HttpRequest):
-    try :
+    try:
         user, password = Authentication(req)
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
-        return request_failed(2,error_message, status_code=status_code)
+        return request_failed(2, error_message, status_code=status_code)
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=401)
@@ -64,11 +65,11 @@ def login(req: HttpRequest):
 @CheckRequire
 @csrf_exempt  # 关闭csrf验证
 def logout(req: HttpRequest):
-    try :
+    try:
         user, password = Authentication(req)
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
-        return request_failed(2,error_message, status_code=status_code)
+        return request_failed(2, error_message, status_code=status_code)
     user_id = user.id
     session = SessionData(req)
     if user_id != session.user_id:
@@ -117,247 +118,28 @@ def register(req: HttpRequest):
     return request_success()
 
 
-# 用户好友管理
-def check_friend_request(req: HttpRequest):
-    # 检查请求方法
-    if req.method != "POST":
-        return JsonResponse({"code": 2, "info": "Bad method"}, status=400)
-    # 检查请求体与好友是否存在
-    try:
-        body = json.loads(req.body)
-        friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse(
-            {"code": 2, "info": "Missing or error type of 'friendId'"}, status=400
-        )
-    if not User.objects.filter(id=friend_id).exists():
-        return JsonResponse({"code": 2, "info": "Friend not exists"}, status=401)
-
-    # 如果没有错误，返回 None
-    return None
-
-
-# 用于获得用户和好友的函数
-def get_user_and_friend(req: HttpRequest):  # 获得好友列表
-    # 获得users
-    user = User.objects.get(id=req.user_id)
-    # 获得friend
-    body = json.loads(req.body)
-    friend_id = int(body.get("friendId", 0))  # 将friend_id转换为整数
-    friend = User.objects.get(id=friend_id)
-    return user, friend
-
-
-@CheckRequire
-@csrf_exempt  # 允许跨域,便于测试
-def apply_friend(req: HttpRequest):
-    # 基本检查
-    error = check_friend_request(req)
-    if error is not None:
-        return error
-    # 检查
-    user, friend = get_user_and_friend(req)
-    friendship = None
-    # 排除自我添加
-    if user.id == friend.id:
-        return request_failed(2, "Cannot add yourself", status_code=401)
-    # 检查是否已经是好友
-    if user.user1_friendships.filter(user2=friend).exists():
-        friendship = user.user1_friendships.get(user2=friend)
-    elif user.user2_friendships.filter(user1=friend).exists():
-        friendship = user.user2_friendships.get(user1=friend)
-    if friendship is not None:
-        if friendship.state == 1:
-            return request_failed(2, "Already friends", status_code=401)
-        elif friendship.state == 0 and friendship.user1 == user:
-            return request_failed(2, "Already sent request", status_code=401)
-        elif friendship.state == 0 and friendship.user2 == user:
-            return request_failed(2, "Already received request", status_code=401)
-        elif friendship.state == 2:
-            return request_failed(2, "Already blocked", status_code=401)
-        elif friendship.state == 3:
-            friendship.user1 = user
-            friendship.user2 = friend
-            friendship.state = 0
-            return request_success()
-    # 创建好友关系
-    friendship = Friendship(user1=user, user2=friend, state=0)
-    friendship.save()
-    return request_success()
-
-
-@CheckRequire
-@csrf_exempt  # 允许跨域,便于测试
-def accept_friend(req: HttpRequest):
-    # 基本检查
-    error = check_friend_request(req)
-    if error is not None:
-        return error
-    # 检查
-    user, friend = get_user_and_friend(req)
-    friendship = None
-    # 排除自我添加
-    if user.id == friend.id:
-        return request_failed(2, "Cannot add yourself", status_code=401)
-    # 检查是否已经是好友
-    if user.user1_friendships.filter(user2=friend).exists():
-        friendship = user.user1_friendships.get(user2=friend)
-    elif user.user2_friendships.filter(user1=friend).exists():
-        friendship = user.user2_friendships.get(user1=friend)
-    if friendship is None:
-        return request_failed(2, "Not friends send request", status_code=401)
-    elif friendship.state == 1:
-        return request_failed(2, "Already friends", status_code=401)
-    elif friendship.state == 2:
-        return request_failed(2, "Already blocked", status_code=401)
-    elif friendship.state == 3:
-        return request_failed(2, "Already rejected", status_code=401)
-    elif friendship.state == 0 and friendship.user1 == user:
-        return request_failed(2, "Already sent request", status_code=401)
-    elif friendship.state == 0 and friendship.user1 != user:
-        friendship.state = 1
-        friendship.save()
-        return request_success()
-
-
-@CheckRequire
-@csrf_exempt  # 允许跨域,便于测试
-def reject_friend(req: HttpRequest):
-    # 基本检查
-    error = check_friend_request(req)
-    if error is not None:
-        return error
-    # 检查
-    user, friend = get_user_and_friend(req)
-    friendship = None
-    # 排除自我添加
-    if user.id == friend.id:
-        return request_failed(2, "Cannot add yourself", status_code=401)
-    # 检查是否已经是好友
-    if user.user1_friendships.filter(user2=friend).exists():
-        friendship = user.user1_friendships.get(user2=friend)
-    elif user.user2_friendships.filter(user1=friend).exists():
-        friendship = user.user2_friendships.get(user1=friend)
-    if friendship is None:
-        return request_failed(2, "Not friends send request", status_code=401)
-    elif friendship.state == 1:
-        return request_failed(2, "Already friends", status_code=401)
-    elif friendship.state == 2:
-        return request_failed(2, "Already blocked", status_code=401)
-    elif friendship.state == 3:
-        return request_failed(2, "Already rejected", status_code=401)
-    elif friendship.state == 0 and friendship.user1 == user:
-        return request_failed(2, "You sent request", status_code=401)
-    elif friendship.state == 0 and friendship.user2 == user:
-        friendship.state = 3
-        friendship.user1 = user
-        friendship.user2 = friend
-        friendship.save()
-        return request_success()
-
-
-@CheckRequire
-@csrf_exempt  # 允许跨域,便于测试
-def block_friend(req: HttpRequest):
-    # 基本检查
-    error = check_friend_request(req)
-    if error is not None:
-        return error
-    # 检查
-    user, friend = get_user_and_friend(req)
-    friendship = None
-    # 排除自我添加
-    if user.id == friend.id:
-        return request_failed(2, "Cannot add yourself", status_code=401)
-    # 检查是否已经是好友
-    if user.user1_friendships.filter(user2=friend).exists():
-        friendship = user.user1_friendships.get(user2=friend)
-    elif user.user2_friendships.filter(user1=friend).exists():
-        friendship = user.user2_friendships.get(user1=friend)
-    if friendship is None:
-        friendship = Friendship(user1=user, user2=friend, state=2, initiator=user)
-        friendship.save()
-        return request_success()
-    elif friendship is not None:
-        friendship.state = 2
-        friendship.user1 = user
-        friendship.user2 = friend
-        friendship.save()
-        return request_success()
-
-
-@CheckRequire
-@csrf_exempt  # 允许跨域,便于测试
-def unblock_friend(req: HttpRequest):
-    # 基本检查
-    error = check_friend_request(req)
-    if error is not None:
-        return error
-    # 检查
-    user, friend = get_user_and_friend(req)
-    friendship = None
-    # 排除自我添加
-    if user.id == friend.id:
-        return request_failed(2, "Cannot add yourself", status_code=401)
-    # 检查是否已经是好友
-    if user.user1_friendships.filter(user2=friend).exists():
-        friendship = user.user1_friendships.get(user2=friend)
-    elif user.user2_friendships.filter(user1=friend).exists():
-        friendship = user.user2_friendships.get(user1=friend)
-    if friendship is None:
-        return request_failed(2, "Not friends", status_code=401)
-    elif friendship.state == 2:  # 删除这一列就不是拉黑了
-        friendship.delete()
-        return request_success()
-    elif friendship.state != 2:
-        return request_failed(2, "Not blocked", status_code=401)
-
-
-@CheckRequire
-@csrf_exempt  # 允许跨域,便于测试
-def delete_friend(req: HttpRequest):
-    # 基本检查
-    error = check_friend_request(req)
-    if error is not None:
-        return error
-    # 检查
-    user, friend = get_user_and_friend(req)
-    friendship = None
-    # 排除自我添加
-    if user.id == friend.id:
-        return request_failed(2, "Cannot add yourself", status_code=401)
-    # 检查是否已经是好友
-    if user.user1_friendships.filter(user2=friend).exists():
-        friendship = user.user1_friendships.get(user2=friend)
-    elif user.user2_friendships.filter(user1=friend).exists():
-        friendship = user.user2_friendships.get(user1=friend)
-    if friendship is None:
-        return request_failed(2, "Not friends", status_code=401)
-    elif friendship.state == 1:
-        friendship.delete()
-        return request_success()
-    elif friendship.state != 1:
-        return request_failed(2, "Not friends", status_code=401)
-
-
-@CheckRequire
-@csrf_exempt  # 允许跨域,便于测试
-def get_friend_list(req: HttpRequest):
-    # 检查请求方法
+def get_list(req: HttpRequest, list_name: str):
     if req.method != "GET":
-        return BAD_METHOD
-    # 检查请求头
-    # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
-    # 找出所有的friend
+        raise KeyError("Bad method", 400)
     friends = []
     user = User.objects.get(id=req.user_id)
-    for friendship in user.user1_friendships.all():
-        if friendship.state == 1:
-            friends.append(friendship.user2)
-    for friendship in user.user2_friendships.all():
-        if friendship.state == 1:
-            friends.append(friendship.user1)
-    # 返回friend列表,包括friend的id,username,avatar
+    if list_name == "friend":
+        for friendship in user.user1_friendships.all():
+            if friendship.state == 1:
+                friends.append(friendship.user2)
+        for friendship in user.user2_friendships.all():
+            if friendship.state == 1:
+                friends.append(friendship.user1)
+    elif list_name == "apply":
+        for friendship in user.user2_friendships.all():
+            if friendship.state == 0:
+                friends.append(friendship.user1)
+    elif list_name == "you_apply":
+        for friendship in user.user1_friendships.all():
+            if friendship.state == 0:
+                friends.append(friendship.user2)
+    else:
+        raise KeyError("Bad list name(wrong in backend", 400)
     response_data = {
         "friends": [
             UserData(
@@ -369,70 +151,39 @@ def get_friend_list(req: HttpRequest):
             for friend in friends
         ]
     }
+    return response_data
+
+
+@CheckRequire
+@csrf_exempt  # 允许跨域,便于测试
+def get_friend_list(req: HttpRequest):
+    try:
+        response_data = get_list(req, "friend")
+    except KeyError as e:
+        error_message, status_code = str(e.args[0]), int(e.args[1])
+        return request_failed(2, error_message, status_code=status_code)
     return request_success(response_data)
 
 
 @CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_apply_list(req: HttpRequest):
-    # 检查请求方法
-    if req.method != "GET":
-        return BAD_METHOD
-    # 检查请求头
-    # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
-    # 找出所有的friend
-    friends = []
-    user = User.objects.get(id=req.user_id)
-    # for friendship in user.user1_friendships.all():
-    #     if friendship.state == 0:
-    #         friends.append(friendship.user2)
-    for friendship in user.user2_friendships.all():
-        if friendship.state == 0:
-            friends.append(friendship.user1)
-    # 返回friend列表,包括friend的id,username,avatar
-    response_data = {
-        "friends": [
-            UserData(
-                id=friend.id,
-                name=friend.username,
-                avatar=friend.avatar,
-                email=friend.userEmail,
-            ).model_dump()
-            for friend in friends
-        ]
-    }
+    try:
+        response_data = get_list(req, "apply")
+    except KeyError as e:
+        error_message, status_code = str(e.args[0]), int(e.args[1])
+        return request_failed(2, error_message, status_code=status_code)
     return request_success(response_data)
 
 
 @CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_you_apply_list(req: HttpRequest):
-    # 检查请求方法
-    if req.method != "GET":
-        return BAD_METHOD
-    # 检查请求头
-    # 从 JWT 当中获得用户名是否存在，并利用获得的用户名进入
-    # 找出所有的friend
-    friends = []
-    user = User.objects.get(id=req.user_id)
-    for friendship in user.user1_friendships.all():
-        if friendship.state == 0:
-            friends.append(friendship.user2)
-    # for friendship in user.user2_friendships.all():
-    #     if friendship.state == 0:
-    #         friends.append(friendship.user1)
-    # 返回friend列表,包括friend的id,username,avatar
-    response_data = {
-        "friends": [
-            UserData(
-                id=friend.id,
-                name=friend.username,
-                avatar=friend.avatar,
-                email=friend.userEmail,
-            ).model_dump()
-            for friend in friends
-        ]
-    }
+    try:
+        response_data = get_list(req, "you_apply")
+    except KeyError as e:
+        error_message, status_code = str(e.args[0]), int(e.args[1])
+        return request_failed(2, error_message, status_code=status_code)
     return request_success(response_data)
 
 
