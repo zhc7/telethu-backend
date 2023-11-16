@@ -7,7 +7,7 @@ from channels.db import database_sync_to_async  # 引入异步数据库操作
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from files.models import Multimedia
-from users.models import Friendship, GroupList, User
+from users.models import Friendship, GroupList, User, MessageList
 from utils.ack_manager import AckManager
 from utils.data import (
     MessageType,
@@ -112,6 +112,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_UNBLOCK_FRIEND: self.unblock_friend,
             MessageType.FUNC_DEL_FRIEND: self.delete_friend,
             MessageType.FUN_SEND_META: self.send_meta_info,
+            MessageType.READ_MESSAGE: self.read_message,
         }.get(message_received.m_type, self.handle_common_message)
         await handler(message_received)
 
@@ -238,6 +239,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         contacts_info = {key: val.model_dump() for key, val in contacts_info.items()}
         await self.send(text_data=json.dumps(contacts_info))
 
+    async def read_message(self, message: Message):
+        message_id = message.content
+        message_sender = await self.add_read_message(message_id, self.user_id)
+        if type(message_sender) == int:
+            await self.send_package_direct(message, str(self.user_id))
+            await self.send_package_direct(message, str(message_sender))
+        else:
+            message.content = message_sender
+            await self.send_package_direct(message, str(self.user_id))
+
     async def handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             await self.handle_multimedia(message_received)
@@ -292,6 +303,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             case MessageType.FUNC_DEL_FRIEND:
                 if str(message.receiver) == str(self.user_id):
                     self.friend_list.remove(message.sender)
+                await self.chat_message(message)
+            case MessageType.READ_MESSAGE:
                 await self.chat_message(message)
 
     async def get_create_massage(self, message: Message):
@@ -596,3 +609,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             group_members[group.group_id] = group_members_id
             group_names[group.group_id] = group.group_name
         return group_id, group_members, group_names
+
+    @database_sync_to_async
+    def add_read_message(self, message_id, user_id):
+        message = MessageList.objects.filter(message_id=message_id).first()
+        if message is None:
+            return "no such message"
+        print(message.receiver, user_id, self.group_list)
+        if message.receiver != user_id and message.receiver not in self.group_list:
+            return "you cannot read this message"
+        else:
+            message.who_read.add(user_id)
+            message.save()
+            return message.sender
