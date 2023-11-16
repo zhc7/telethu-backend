@@ -242,9 +242,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def read_message(self, message: Message):
         message_id = int(message.content)
-        message_sender,message_receiver = await self.add_read_message(message_id, self.user_id)
+        message_sender,message_receiver,message_t_type = await self.add_read_message(message_id, self.user_id)
         if type(message_sender) == int:
             message.receiver = message_receiver
+            message.t_type = message_t_type
+            message.sender = self.user_id
             await self.send_package_direct(message, str(self.user_id))
             await self.send_package_direct(message, str(message_sender))
         else:
@@ -616,11 +618,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def add_read_message(self, message_id, user_id):
         message = MessageList.objects.filter(message_id=message_id).first()
         if message is None:
-            return "no such message" , None
+            return "no such message" , None,None
         print(message.receiver, user_id, self.group_list)
         if message.receiver != user_id and message.receiver not in self.group_list:
-            return "you cannot read this message" ,None
+            return "you cannot read this message" ,None,None
         else:
             message.who_read.add(user_id)
             message.save()
-            return message.sender , message.receiver
+            return message.sender , message.receiver , message.t_type
