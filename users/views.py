@@ -322,13 +322,9 @@ def user_search(req: HttpRequest):
 
 @CheckRequire
 @csrf_exempt
-def delete_user(req: HttpRequest):
+def delete_user(req: HttpRequest, user_id):
     if req.method != "DELETE":
         return BAD_METHOD
-    body = json.loads(req.body)
-    user_id = require(
-        body, "id", "int", err_msg="Missing or error type of [type]"
-    )
     user = User.objects.get(id=user_id)
     # exception
     if user is None:
@@ -336,3 +332,4 @@ def delete_user(req: HttpRequest):
     else:
         user.is_deleted = True
         user.save()
+        return request_success()
