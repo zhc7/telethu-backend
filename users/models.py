@@ -15,7 +15,7 @@ class User(models.Model):
     created_time = models.DateTimeField(auto_now_add=True)
     verification = models.BooleanField(default=False)
     profile = models.JSONField(default=dict)
-
+    is_deleted = models.BooleanField(default=False) # If the user is deleted, default not to be deleted.
     class Meta:
         pass
 

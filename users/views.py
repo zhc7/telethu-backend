@@ -319,3 +319,17 @@ def user_search(req: HttpRequest):
         ]
     }
     return request_success(response_data)
+
+@CheckRequire
+@csrf_exempt
+def delete_user(req: HttpRequest, user_id):
+    if req.method != "DELETE":
+        return BAD_METHOD
+    user = User.objects.get(id=user_id)
+    # exception
+    if user is None:
+        return request_failed(2, "Deleting a user that doesn't exist!", status_code=401)
+    else:
+        user.is_deleted = True
+        user.save()
+        return request_success()
