@@ -21,7 +21,7 @@ class MessageType(enum.IntEnum):
     FUNC_REJECT_FRIEND = 12
     FUNC_BlOCK_FRIEND = 13
     FUNC_DEL_FRIEND = 14
-    FUNC_READ_MSG = 15
+    FUNC_CHANGE_GROUP_OWNER = 15
     FUNC_UPDATE_SETTINGS = (
         16  # includes updating ANY user settings (e.g. mute contact / change email)
     )
@@ -51,6 +51,8 @@ class UserData(ContactsData):
 
 class GroupData(ContactsData):
     members: list[UserData | int]
+    owner: int | None = None
+    admin: list[int] | None = None
     category: str = "group"
 
 
