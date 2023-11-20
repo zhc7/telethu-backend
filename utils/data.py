@@ -85,3 +85,8 @@ class FriendType(enum.IntEnum):
     already_been_reject = 7
     relationship_not_exist = 8
     friend_not_exist = 9
+    
+class MessageStatusType(enum.IntEnum):
+    NORMAL = 0
+    RECALLED = 1
+    DELETED = 2
