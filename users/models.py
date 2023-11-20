@@ -60,9 +60,9 @@ class GroupList(models.Model):
     )
     group_members = models.ManyToManyField(User, related_name="group_members")
     # # 群主
-    # group_owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_owner')
+    group_owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_owner')
     # # 群管理员
-    # group_admin = models.ManyToManyField(User, related_name='group_admin')
+    group_admin = models.ManyToManyField(User, related_name='group_admin')
 
 class MessageList(models.Model):
     message_id = models.AutoField(primary_key=True)
@@ -71,7 +71,7 @@ class MessageList(models.Model):
     time = models.BigIntegerField(blank=False, null=False)
     content = models.TextField()
     sender = models.IntegerField(blank=False, null=False)
-    receiver = models.IntegerField(blank=False, null=False)
+    receiver = models.IntegerField(blank=False, null=True)
     info = models.CharField(max_length=256, default="")
     who_read = models.ManyToManyField(User, related_name="who_read")
     status = models.IntegerField(choices=[(status.value, status.name) for status in MessageStatusType], default=MessageStatusType.NORMAL)

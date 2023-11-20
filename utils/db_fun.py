@@ -20,6 +20,8 @@ def db_query_group_info(group_id_list) -> dict[int, GroupData]:
             name=group.group_name,
             avatar=group.group_avatar,
             members=[],
+            owner=group.group_owner.id,
+            admin=[],
         )
         users_info = []
         for user in group.group_members.all():
@@ -31,6 +33,8 @@ def db_query_group_info(group_id_list) -> dict[int, GroupData]:
             )
             users_info.append(user_info)
         group_date.members = users_info
+        for admin in group.group_admin.all():
+            group_date.admin.append(admin.id)
         group_info[group_id] = group_date
     return group_info
 
@@ -73,6 +77,8 @@ def db_query_group(self_user_id):
     group_id = []
     group_names = {}
     group_members = {}
+    group_owner = {}
+    group_admin = {}
     for group in groups:
         group_id.append(int(group.group_id))
         group_members_user = group.group_members.all()
@@ -81,13 +87,18 @@ def db_query_group(self_user_id):
             group_members_id.append(int(user.id))
         group_members[group.group_id] = group_members_id
         group_names[group.group_id] = group.group_name
-    return group_id, group_members, group_names
+        group_owner[group.group_id] = group.group_owner.id
+        group_admin[group.group_id] = []
+        for admin in group.group_admin.all():
+            group_admin[group.group_id].append(admin.id)
+    return group_id, group_members, group_names, group_owner, group_admin
 
 
 @database_sync_to_async
 def db_build_group(friend_list, user_id, group_name, group_members):
+    user = User.objects.filter(id=user_id).first()
     group = GroupList.objects.create(
-        group_id=globalIdMaker.get_id(), group_name=group_name
+        group_id=globalIdMaker.get_id(), group_name=group_name, group_owner=user
     )
     for member in group_members:
         if member in friend_list or member == user_id:
@@ -120,6 +131,22 @@ def db_add_member(self_user_id, self_friend_list, group_id, add_member):
         id_list.append(member.id)
     return group, id_list
 
+
+@database_sync_to_async
+def db_change_group_owner(group_id,old_owner,new_owner):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group not exist")
+    if group.group_owner.id != old_owner:
+        raise KeyError("you are not the owner")
+    user = User.objects.filter(id=new_owner).first()
+    if user is None:
+        raise KeyError("new owner not exist")
+    if user not in group.group_members.all():
+        raise KeyError("new owner not in group")
+    group.group_owner = user
+    group.save()
+    return group.group_id
 
 @database_sync_to_async
 def db_from_id_to_meta(id_list):

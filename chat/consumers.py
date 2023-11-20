@@ -17,6 +17,7 @@ from utils.db_fun import (
     db_query_group,
     db_add_read_message,
     db_reduce_person,
+    db_change_group_owner,
 )
 
 from utils.ack_manager import AckManager
@@ -45,6 +46,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.group_list: list[int] = []
         self.group_members: dict[int, list[int]] = {}
         self.group_names = None
+        self.group_owner:list[int]= []
+        self.group_admin:dict[int, list[int]] = {}
         self.channel: aio_pika.Channel | None = None
         self.storage_exchange = None
         self.ack_manager = AckManager()
@@ -76,7 +79,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # get friend list
         self.friend_list = await db_query_friends(self.user_id)
         # get group list
-        self.group_list, self.group_members, self.group_names = await db_query_group(
+        self.group_list, self.group_members, self.group_names,self.group_owner,self.group_admin= await db_query_group(
             self.user_id
         )
         # build queue and bind to exchange to receive message from rabbitmq server
@@ -160,6 +163,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_SEND_META: self.rcv_send_meta_info,
             MessageType.FUNC_READ_MESSAGE: self.rcv_read_message,
             MessageType.FUNC_LEAVE_GROUP: self.rcv_leave_group,
+            MessageType.FUNC_CHANGE_GROUP_OWNER: self.rcv_change_group_owner,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -321,6 +325,33 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
         await self.send_message_to_target(message, str(user_id))
 
+    async def rcv_change_group_owner(self, message: Message):
+        group_old_owner = self.user_id
+        group_new_owner = message.receiver
+        group_id = message.content
+        if group_old_owner == group_new_owner:
+            message.content = "You are already the owner"
+            await self.send_message_to_front(message)
+            return
+        if group_id not in self.group_list:
+            message.content = "You are not in this group"
+            await self.send_message_to_front(message)
+            return
+        if group_new_owner not in self.group_members[group_id]:
+            message.content = "This user is not in this group"
+            await self.send_message_to_front(message)
+            return
+        try:
+            await db_change_group_owner(group_id, group_old_owner, group_new_owner)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
+            return
+        for member in self.group_members[group_id]:
+            await self.send_message_to_target(message, str(member))
+
+
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -365,8 +396,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_BlOCK_FRIEND: self.send_message_to_front,
             MessageType.FUNC_UNBLOCK_FRIEND: self.send_message_to_front,
             MessageType.FUNC_DEL_FRIEND: self.cb_del_friend,
-            MessageType.FUNC_READ_MSG: self.send_message_to_front,
+            MessageType.FUNC_READ_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_LEAVE_GROUP: self.cb_group_reduce,
+            MessageType.FUNC_CHANGE_GROUP_OWNER: self.cb_group_change_owner,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
@@ -406,6 +438,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.group_members.pop(group_id)
                 self.group_names.pop(group_id)
         await self.send_message_to_front(message)
+
+
+    async def cb_group_change_owner(self, message: Message):
+        # 未来会修改一下数据，现在只是单纯给前端发消息
+        await self.send_message_to_front(message)
+
 
     async def send_message_to_front(self, message_sent: Message):
         await self.send(
