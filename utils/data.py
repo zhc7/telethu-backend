@@ -29,6 +29,8 @@ class MessageType(enum.IntEnum):
     FUNC_SEND_META = 18
     FUNC_READ_MESSAGE = 19
     FUNC_LEAVE_GROUP = 20
+    FUNC_ADD_GROUP_ADMIN = 21
+    FUNC_REMOVE_GROUP_ADMIN = 22
 
 
 class TargetType(enum.IntEnum):
