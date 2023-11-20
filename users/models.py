@@ -1,5 +1,5 @@
 from django.db import models
-
+from utils.data import MessageStatusType
 
 class User(models.Model):
     id = models.AutoField(
@@ -74,4 +74,5 @@ class MessageList(models.Model):
     receiver = models.IntegerField(blank=False, null=True)
     info = models.CharField(max_length=256, default="")
     who_read = models.ManyToManyField(User, related_name="who_read")
+    status = models.IntegerField(choices=[(status.value, status.name) for status in MessageStatusType], default=MessageStatusType.NORMAL)
 

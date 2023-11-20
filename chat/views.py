@@ -3,9 +3,10 @@ import json
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
-
+from utils.data import MessageStatusType
 from users.models import MessageList
 from utils.data import Message
+from utils.utils_request import request_failed, request_success
 
 
 def index(request):
@@ -65,3 +66,20 @@ def chat_history(request):
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
     # TODO: 利用上述字段获取数据库中数据
+
+def recall(request, message_id):
+    m = MessageList.objects.get(message_id=message_id)
+    if m is None:
+        return request_failed(2, "Can't recall a message that doesn't exist! ", status_code=401)
+    else:
+        pass
+        # Execute a rather complicated logic
+
+def delete(request, message_id):
+    m = MessageList.objects.get(message_id=message_id)
+    if m is None:
+        return request_failed(2, "Can't delete a message that doesn't exist! ", status_code=401)
+    else:
+        m.status = MessageStatusType.DELETED
+        m.save()
+        return request_success()

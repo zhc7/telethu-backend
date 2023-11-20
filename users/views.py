@@ -320,6 +320,7 @@ def user_search(req: HttpRequest):
     }
     return request_success(response_data)
 
+
 @CheckRequire
 @csrf_exempt
 def delete_user(req: HttpRequest, id):
@@ -336,7 +337,6 @@ def delete_user(req: HttpRequest, id):
     else:
         session = SessionData(req)
         session.user_id = None
-        prev_email = user.userEmail
         user.userEmail = user.userEmail + "is_deleted"
         user.is_deleted = True
         user.save()
