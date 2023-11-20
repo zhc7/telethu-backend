@@ -291,22 +291,31 @@ def user_search(req: HttpRequest):
     search_type = require(
         body, "type", "int", err_msg="Missing or error type of [type]"
     )
+    user_list = []
     if search_type == 0:  # user_id
         if not User.objects.filter(id=user_message).exists():
             return request_failed(2, "User not exists", status_code=403)
         user = User.objects.get(id=user_message)
+        user_list.append(user)
     elif search_type == 1:  # user_email
-        if not User.objects.filter(userEmail=user_message).exists():
+        user_list = User.objects.filter(userEmail__icontains=user_message)
+        if len(user_list) == 0:
             return request_failed(2, "User not exists", status_code=403)
-        user = User.objects.get(userEmail=user_message)
+    elif search_type == 2:  # user_name
+        user_list = User.objects.filter(username__icontains=user_message)
+        if len(user_list) == 0:
+            return request_failed(2, "User not exists", status_code=403)
     else:
         return BAD_METHOD
     response_data = {
-        "user": UserData(
-            id=user.id,
-            name=user.username,
-            avatar=user.avatar,
-            email=user.userEmail,
-        ).model_dump()
+        "users": [
+            UserData(
+                id=user.id,
+                name=user.username,
+                avatar=user.avatar,
+                email=user.userEmail,
+            ).model_dump()
+            for user in user_list
+        ]
     }
     return request_success(response_data)
