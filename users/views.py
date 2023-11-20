@@ -322,10 +322,14 @@ def user_search(req: HttpRequest):
 
 @CheckRequire
 @csrf_exempt
-def delete_user(req: HttpRequest, user_id):
+def delete_user(req: HttpRequest, id):
+    # First, judge whether the user_id is logged in.
+    if req.user_id != id:
+        return request_failed(2, "User currently hasn't logged in! ", status_code=401)
+    
     if req.method != "DELETE":
         return BAD_METHOD
-    user = User.objects.get(id=user_id)
+    user = User.objects.get(id=id)
     # exception
     if user is None:
         return request_failed(2, "Deleting a user that doesn't exist!", status_code=401)

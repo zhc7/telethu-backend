@@ -14,5 +14,5 @@ urlpatterns = [
     re_path(r"avatar/(?P<hash_code>[a-f0-9]+)?", views.avatar),
     path("profile", views.profile),
     path("user_search", views.user_search),
-    path("delete_user/<int:user_id>/", views.delete_user, name='delete_user')
+    path("delete_user/<int:id>/", views.delete_user, name='delete_user')
 ]
