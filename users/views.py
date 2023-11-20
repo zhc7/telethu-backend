@@ -336,6 +336,8 @@ def delete_user(req: HttpRequest, id):
     else:
         session = SessionData(req)
         session.user_id = None
+        prev_email = user.userEmail
+        user.userEmail = user.userEmail + "is_deleted"
         user.is_deleted = True
         user.save()
         return request_success()
