@@ -16,6 +16,7 @@ from utils.db_fun import (
     db_create_multimedia,
     db_query_group,
     db_add_read_message,
+    db_reduce_person,
 )
 
 from utils.ack_manager import AckManager
@@ -42,7 +43,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.self_exchange = None
         self.friend_list: list[int] = []
         self.group_list: list[int] = []
-        self.group_members = None
+        self.group_members: dict[int, list[int]] = {}
         self.group_names = None
         self.channel: aio_pika.Channel | None = None
         self.storage_exchange = None
@@ -135,7 +136,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         # step 3. publish message to persistent storage queue
-        if message_received.m_type != MessageType.READ_MESSAGE:
+        if message_received.m_type != MessageType.FUNC_READ_MESSAGE:
             message_json = message_received.model_dump_json()
             await self.storage_exchange.publish(
                 aio_pika.Message(
@@ -156,13 +157,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_BlOCK_FRIEND: self.rcv_block_friend,
             MessageType.FUNC_UNBLOCK_FRIEND: self.rcv_unblock_friend,
             MessageType.FUNC_DEL_FRIEND: self.rcv_delete_friend,
-            MessageType.FUN_SEND_META: self.rcv_send_meta_info,
-            MessageType.READ_MESSAGE: self.rcv_read_message,
+            MessageType.FUNC_SEND_META: self.rcv_send_meta_info,
+            MessageType.FUNC_READ_MESSAGE: self.rcv_read_message,
+            MessageType.FUNC_LEAVE_GROUP: self.rcv_leave_group,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
     async def rcv_create_group(self, message: Message):
-        # 确保group_members是list[int],以后搬到鉴权里面
         if not isinstance(message.content.members, list):
             return None
         if len(message.content.members) == 0 and not isinstance(
@@ -301,6 +302,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content = message_sender
             await self.send_message_to_target(message, str(self.user_id))
 
+    async def rcv_leave_group(self, message: Message):
+        group_id = message.receiver
+        user_id = self.user_id
+        if group_id not in self.group_list:
+            message.content = "You are not in this group"
+            await self.send_message_to_target(message, str(user_id))
+            return
+        message.sender = user_id
+        message.t_type = TargetType.GROUP
+        message.content = "user:id=" + str(user_id) + " leave group"
+        group_other_members = self.group_members[group_id]
+        self.group_list.remove(group_id)
+        self.group_members.pop(group_id)
+        self.group_names.pop(group_id)
+        await db_reduce_person(group_id, user_id)
+        for member in group_other_members:
+            await self.send_message_to_target(message, str(member))
+        await self.send_message_to_target(message, str(user_id))
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -346,6 +366,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_UNBLOCK_FRIEND: self.send_message_to_front,
             MessageType.FUNC_DEL_FRIEND: self.cb_del_friend,
             MessageType.FUNC_READ_MSG: self.send_message_to_front,
+            MessageType.FUNC_LEAVE_GROUP: self.cb_group_reduce,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
@@ -366,14 +387,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.group_members[group_id] = []
             self.group_names[group_id] = message.content.name
             for member in message.content.members:
-                self.group_members[group_id].append(member.id)
+                self.group_members[group_id].append(int(member.id))
         else:
             for member in message.content.members:
                 if member.id not in self.group_members[group_id]:
-                    self.group_members[group_id].append(member.id)
+                    self.group_members[group_id].append(int(member.id))
             self.group_names[group_id] = message.content.name
         await self.send_message_to_front(message)
-        await self.ack_manager.acknowledge(message.message_id)
+
+    async def cb_group_reduce(self, message: Message):
+        group_id = message.receiver
+        user_reduce = message.sender
+        if group_id in self.group_list:
+            if user_reduce in self.group_members[group_id]:
+                self.group_members[group_id].remove(int(user_reduce))
+            if user_reduce == self.user_id:
+                self.group_list.remove(group_id)
+                self.group_members.pop(group_id)
+                self.group_names.pop(group_id)
+        await self.send_message_to_front(message)
 
     async def send_message_to_front(self, message_sent: Message):
         await self.send(
