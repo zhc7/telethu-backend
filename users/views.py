@@ -310,3 +310,20 @@ def user_search(req: HttpRequest):
         ).model_dump()
     }
     return request_success(response_data)
+
+@CheckRequire
+@csrf_exempt
+def delete_user(req: HttpRequest):
+    if req.method != "DELETE":
+        return BAD_METHOD
+    body = json.loads(req.body)
+    user_id = require(
+        body, "id", "int", err_msg="Missing or error type of [type]"
+    )
+    user = User.objects.get(id=user_id)
+    # exception
+    if user is None:
+        return request_failed(2, "Deleting a user that doesn't exist!", status_code=401)
+    else:
+        user.is_deleted = True
+        user.save()
