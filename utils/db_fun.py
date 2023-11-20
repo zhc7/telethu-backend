@@ -282,6 +282,29 @@ def db_add_or_remove_admin(group_id, admin_id, user_id, if_add):
 
 
 @database_sync_to_async
+def db_group_remove_member(group_id, remove_id, user_id):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group not exist")
+    if group.group_owner.id != user_id and user_id not in group.group_admin.all():
+        raise KeyError("you are not the owner or admin")
+    user = User.objects.filter(id=remove_id).first()
+    if user is None:
+        raise KeyError("remove user not exist")
+    if user not in group.group_members.all():
+        raise KeyError("remove user not in group")
+    if user == group.group_owner:
+        raise KeyError("you cannot remove owner")
+    if user in group.group_admin.all() and user_id != group.group_owner.id:
+        raise KeyError("you cannot remove admin if you are not owner")
+    group.group_members.remove(user)
+    if user in group.group_admin.all():
+        group.group_admin.remove(user)
+    group.save()
+    return True
+
+
+@database_sync_to_async
 def db_add_read_message(self_group_list, message_id, user_id):
     message = MessageList.objects.filter(message_id=message_id).first()
     if message is None:

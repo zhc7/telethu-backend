@@ -19,6 +19,7 @@ from utils.db_fun import (
     db_reduce_person,
     db_change_group_owner,
     db_add_or_remove_admin,
+    db_group_remove_member,
 )
 
 from utils.ack_manager import AckManager
@@ -171,6 +172,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_CHANGE_GROUP_OWNER: self.rcv_change_group_owner,
             MessageType.FUNC_ADD_GROUP_ADMIN: self.rcv_add_or_reduce_admin,
             MessageType.FUNC_REMOVE_GROUP_ADMIN: self.rcv_add_or_reduce_admin,
+            MessageType.FUNC_REMOVE_GROUP_MEMBER: self.rcv_remove_group_member,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -377,6 +379,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         for member in self.group_members[group_id]:
             await self.send_message_to_target(message, str(member))
 
+    async def rcv_remove_group_member(self, message: Message):
+        group_id = message.content
+        group_member = message.receiver
+        try:
+            await db_group_remove_member(group_id, group_member, self.user_id)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
+            return
+        self.group_members[group_id].remove(group_member)
+        for member in self.group_members[group_id]:
+            await self.send_message_to_target(message, str(member))
+        await self.send_message_to_target(message, str(group_member))
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -426,6 +442,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_CHANGE_GROUP_OWNER: self.cb_group_change_owner,
             MessageType.FUNC_ADD_GROUP_ADMIN: self.cb_add_or_remove_admin,
             MessageType.FUNC_REMOVE_GROUP_ADMIN: self.cb_add_or_remove_admin,
+            MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_group_remove_member,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
@@ -477,6 +494,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
         else:
             if message.receiver in self.group_admin[message.content]:
                 self.group_admin[message.content].remove(message.receiver)
+        await self.send_message_to_front(message)
+
+    async def cb_group_remove_member(self, message: Message):
+        group_id = message.content
+        user_remove = message.receiver
+        if self.user_id == user_remove and group_id in self.group_list:
+            self.group_list.remove(group_id)
+            self.group_members.pop(group_id)
+            self.group_names.pop(group_id)
+        else:
+            if group_id in self.group_list:
+                if user_remove in self.group_members[group_id]:
+                    self.group_members[group_id].remove(int(user_remove))
+                if user_remove in self.group_admin[group_id]:
+                    self.group_admin[group_id].remove(int(user_remove))
         await self.send_message_to_front(message)
 
     async def send_message_to_front(self, message_sent: Message):
