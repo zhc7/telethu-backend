@@ -74,11 +74,11 @@ def db_query_group(self_user_id):
     group_names = {}
     group_members = {}
     for group in groups:
-        group_id.append(group.group_id)
+        group_id.append(int(group.group_id))
         group_members_user = group.group_members.all()
         group_members_id = []
         for user in group_members_user:
-            group_members_id.append(user.id)
+            group_members_id.append(int(user.id))
         group_members[group.group_id] = group_members_id
         group_names[group.group_id] = group.group_name
     return group_id, group_members, group_names
@@ -239,3 +239,13 @@ def db_add_read_message(self_group_list, message_id, user_id):
         message.who_read.add(user_id)
         message.save()
         return message.sender, message.receiver, message.t_type
+
+
+@database_sync_to_async
+def db_reduce_person(group_id, person_id):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        return None
+    group.group_members.remove(person_id)
+    group.save()
+    return group.group_id

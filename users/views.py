@@ -243,12 +243,12 @@ def avatar(req: HttpRequest, hash_code: str = None):
                 f.write(avatar_real)
         # save the file path
         user = User.objects.get(id=req.user_id)
-        user.avatar = file_path
+        user.avatar = real_md5
         user.save()
         return request_success()
     elif req.method == "GET":
         user = User.objects.get(id=req.user_id)
-        avatar_path = user.avatar
+        avatar_path = "./files/avatar_storage/" + user.avatar
         if hash_code:
             avatar_path = "./files/avatar_storage/" + hash_code
         if avatar_path is None:
