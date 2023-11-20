@@ -26,9 +26,9 @@ def Authentication(req: HttpRequest):
     user_email = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
-    if not User.objects.filter(userEmail=user_email).exists():
+    if not User.objects.filter(userEmail=user_email, is_deleted=False).exists():
         raise KeyError("User not exists", 401)
-    user = User.objects.get(userEmail=user_email)
+    user = User.objects.get(userEmail=user_email, is_deleted=False)
     return user, password
 
 
@@ -97,7 +97,7 @@ def register(req: HttpRequest):
     user_email = require(
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
-    if User.objects.filter(userEmail=user_email).exists():
+    if User.objects.filter(userEmail=user_email, is_deleted=False).exists():
         return request_failed(2, "userEmail already exists", status_code=401)
     if not check_require(username, "username"):
         return request_failed(2, "Invalid username", status_code=422)
@@ -195,7 +195,7 @@ def verification(signed_data):
     user_id = data["user_id"]
     email = data["email"]
     print("1!")
-    user = User.objects.get(id=user_id, userEmail=email)
+    user = User.objects.get(id=user_id, userEmail=email, is_deleted=False)
     print("2")
     if user is None:
         print("3")
@@ -334,6 +334,8 @@ def delete_user(req: HttpRequest, id):
     if user is None:
         return request_failed(2, "Deleting a user that doesn't exist!", status_code=401)
     else:
+        session = SessionData(req)
+        session.user_id = None
         user.is_deleted = True
         user.save()
         return request_success()
