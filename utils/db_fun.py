@@ -133,7 +133,7 @@ def db_add_member(self_user_id, self_friend_list, group_id, add_member):
 
 
 @database_sync_to_async
-def db_change_group_owner(group_id,old_owner,new_owner):
+def db_change_group_owner(group_id, old_owner, new_owner):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
         raise KeyError("group not exist")
@@ -147,6 +147,7 @@ def db_change_group_owner(group_id,old_owner,new_owner):
     group.group_owner = user
     group.save()
     return group.group_id
+
 
 @database_sync_to_async
 def db_from_id_to_meta(id_list):
@@ -252,6 +253,32 @@ def db_create_multimedia(self_user_id, m_type, md5, t_type, user_or_group):
             multimedia.multimedia_group_listener.add(user_or_group)
             multimedia.save()
     return
+
+
+@database_sync_to_async
+def db_add_or_remove_admin(group_id, admin_id, user_id, if_add):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group not exist")
+    if group.group_owner.id != user_id:
+        raise KeyError("you are not the owner")
+    if group.group_owner.id == admin_id:
+        raise KeyError("you are the owner")
+    user = User.objects.filter(id=admin_id).first()
+    if user is None:
+        raise KeyError("new admin not exist")
+    if user not in group.group_members.all():
+        raise KeyError("new admin not in group")
+    if if_add:
+        if user in group.group_admin.all():
+            raise KeyError("already admin")
+        group.group_admin.add(user)
+    else:
+        if user not in group.group_admin.all():
+            raise KeyError("not admin")
+        group.group_admin.remove(user)
+    group.save()
+    return True
 
 
 @database_sync_to_async
