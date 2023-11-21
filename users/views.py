@@ -1,21 +1,23 @@
 import hashlib
 import json
 import os
+
+import magic
+from django.core.signing import loads
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+
+from users.email import email_sender
 from users.models import User
 from utils.data import UserData
-from users.email import email_sender
 from utils.session import SessionData
 from utils.uid import globalIdMaker
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from utils.utils_require import check_require, CheckRequire, require
-from django.core.signing import loads
-import magic
 
 
-def Authentication(req: HttpRequest):
+def authentication(req: HttpRequest):
     # 检查请求方法
     if req.method != "POST":
         raise KeyError("Bad method", 400)
@@ -36,7 +38,7 @@ def Authentication(req: HttpRequest):
 @csrf_exempt  # 关闭csrf验证
 def login(req: HttpRequest):
     try:
-        user, password = Authentication(req)
+        user, password = authentication(req)
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
@@ -66,7 +68,7 @@ def login(req: HttpRequest):
 @csrf_exempt  # 关闭csrf验证
 def logout(req: HttpRequest):
     try:
-        user, password = Authentication(req)
+        user, password = authentication(req)
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
@@ -323,14 +325,14 @@ def user_search(req: HttpRequest):
 
 @CheckRequire
 @csrf_exempt
-def delete_user(req: HttpRequest, id):
+def delete_user(req: HttpRequest, user_id):
     # First, judge whether the user_id is logged in.
-    if req.user_id != id:
+    if req.user_id != user_id:
         return request_failed(2, "User currently hasn't logged in! ", status_code=401)
-    
+
     if req.method != "DELETE":
         return BAD_METHOD
-    user = User.objects.get(id=id)
+    user = User.objects.get(id=user_id)
     # exception
     if user is None:
         return request_failed(2, "Deleting a user that doesn't exist!", status_code=401)
