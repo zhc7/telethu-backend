@@ -91,4 +91,4 @@ class FriendType(enum.IntEnum):
 class MessageStatusType(enum.IntEnum):
     NORMAL = 0
     RECALLED = 1
-    DELETED = 2
+    EDITED = 2
