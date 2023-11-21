@@ -9,8 +9,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
 from users.email import email_sender
-from users.models import User
-from utils.data import UserData
+from users.models import User, GroupList
+from utils.data import UserData, GroupData
 from utils.session import SessionData
 from utils.uid import globalIdMaker
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
@@ -122,13 +122,24 @@ def register(req: HttpRequest):
 def get_user_info(req: HttpRequest, user_id: int):
     user = User.objects.get(id=user_id)
     if user is None:
-        return request_failed(2, "User not exists", status_code=404)
-    response_data = UserData(
-        id=user.id,
-        name=user.username,
-        avatar=user.avatar,
-        email=user.userEmail,
-    ).model_dump()
+        group = GroupList.objects.get(group_id=user_id)
+        if group is None:
+            return request_failed(2, "No such user", status_code=404)
+        response_data = GroupData(
+            id=group.group_id,
+            name=group.group_name,
+            avatar=group.group_avatar,
+            members=group.group_members.all(),  # TODO: not sure if this is correct
+            owner=group.group_owner,
+            admin=group.group_admin.all(),  # TODO: same above
+        ).model_dump()
+    else:
+        response_data = UserData(
+            id=user.id,
+            name=user.username,
+            avatar=user.avatar,
+            email=user.userEmail,
+        ).model_dump()
     return request_success(response_data)
 
 
