@@ -23,16 +23,8 @@ def db_query_group_info(group_id_list) -> dict[int, GroupData]:
             owner=group.group_owner.id,
             admin=[],
         )
-        users_info = []
         for user in group.group_members.all():
-            user_info = UserData(
-                id=user.id,
-                name=user.username,
-                avatar=user.avatar,
-                email=user.userEmail,
-            )
-            users_info.append(user_info)
-        group_date.members = users_info
+            group_date.members.append(user.id)
         for admin in group.group_admin.all():
             group_date.admin.append(admin.id)
         group_info[group_id] = group_date
