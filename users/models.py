@@ -55,6 +55,22 @@ class Friendship(models.Model):  # 好友关系
         return f"{self.user1} - {self.user2} Friendship"
 
 
+class MessageList(models.Model):
+    message_id = models.AutoField(primary_key=True)
+    m_type = models.IntegerField(blank=False, null=False)
+    t_type = models.IntegerField(blank=False, null=False)
+    time = models.BigIntegerField(blank=False, null=False)
+    content = models.TextField()
+    sender = models.IntegerField(blank=False, null=False)
+    receiver = models.IntegerField(blank=False, null=True)
+    info = models.CharField(max_length=256, default="")
+    who_read = models.ManyToManyField(User, related_name="who_read")
+    status = models.IntegerField(
+        choices=[(status.value, status.name) for status in MessageStatusType],
+        default=MessageStatusType.NORMAL,
+    )
+
+
 class GroupList(models.Model):
     group_id = models.AutoField(primary_key=True)
     group_name = models.CharField(max_length=32, default="群聊")
@@ -70,19 +86,7 @@ class GroupList(models.Model):
     )
     # # 群管理员
     group_admin = models.ManyToManyField(User, related_name="group_admin")
+    # 置顶消息
+    group_top_message = models.ManyToManyField(MessageList, related_name="group_top_message")
 
 
-class MessageList(models.Model):
-    message_id = models.AutoField(primary_key=True)
-    m_type = models.IntegerField(blank=False, null=False)
-    t_type = models.IntegerField(blank=False, null=False)
-    time = models.BigIntegerField(blank=False, null=False)
-    content = models.TextField()
-    sender = models.IntegerField(blank=False, null=False)
-    receiver = models.IntegerField(blank=False, null=True)
-    info = models.CharField(max_length=256, default="")
-    who_read = models.ManyToManyField(User, related_name="who_read")
-    status = models.IntegerField(
-        choices=[(status.value, status.name) for status in MessageStatusType],
-        default=MessageStatusType.NORMAL,
-    )

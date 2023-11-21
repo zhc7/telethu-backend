@@ -22,11 +22,14 @@ def db_query_group_info(group_id_list) -> dict[int, GroupData]:
             members=[],
             owner=group.group_owner.id,
             admin=[],
+            top_message=[],
         )
         for user in group.group_members.all():
             group_date.members.append(user.id)
         for admin in group.group_admin.all():
             group_date.admin.append(admin.id)
+        for message in group.group_top_message.all():
+            group_date.top_message.append(message.message_id)
         group_info[group_id] = group_date
     return group_info
 
@@ -292,6 +295,25 @@ def db_group_remove_member(group_id, remove_id, user_id):
     group.group_members.remove(user)
     if user in group.group_admin.all():
         group.group_admin.remove(user)
+    group.save()
+    return True
+
+
+@database_sync_to_async
+def db_set_top_message(group_id, message_id, user_id):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group you chose not exist")
+    if group.group_owner.id != user_id and user_id not in group.group_admin.all():
+        raise KeyError("you are not the owner or admin")
+    message = MessageList.objects.filter(message_id=message_id).first()
+    if message is None:
+        raise KeyError("message not exist")
+    if message.receiver != group_id:
+        raise KeyError("message not in group")
+    if message in group.group_top_message.all():
+        raise KeyError("message already top")
+    group.group_top_message.add(message)
     group.save()
     return True
 

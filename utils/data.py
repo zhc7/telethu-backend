@@ -32,6 +32,7 @@ class MessageType(enum.IntEnum):
     FUNC_ADD_GROUP_ADMIN = 21
     FUNC_REMOVE_GROUP_ADMIN = 22
     FUNC_REMOVE_GROUP_MEMBER = 23
+    FUNC_MESSAGE_BROADCAST = 24
 
 
 class TargetType(enum.IntEnum):
@@ -53,7 +54,8 @@ class UserData(ContactsData):
 
 
 class GroupData(ContactsData):
-    members: list[UserData | int]
+    top_message: list[int] | None = None
+    members: list[int]
     owner: int | None = None
     admin: list[int] | None = None
     category: str = "group"

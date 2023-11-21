@@ -20,6 +20,7 @@ from utils.db_fun import (
     db_change_group_owner,
     db_add_or_remove_admin,
     db_group_remove_member,
+    db_set_top_message,
 )
 
 from utils.ack_manager import AckManager
@@ -157,6 +158,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # step 4. handle message
         # to sync across same user's different devices
+        Message.sender = self.user_id
         handler: Callable[[Message], Any] = {
             MessageType.FUNC_CREATE_GROUP: self.rcv_create_group,
             MessageType.FUNC_ADD_GROUP_MEMBER: self.rcv_add_group_member,
@@ -173,6 +175,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_ADD_GROUP_ADMIN: self.rcv_add_or_reduce_admin,
             MessageType.FUNC_REMOVE_GROUP_ADMIN: self.rcv_add_or_reduce_admin,
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.rcv_remove_group_member,
+            MessageType.FUNC_MESSAGE_BROADCAST: self.rcv_set_top_message,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -195,7 +198,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.content.avatar = group.group_avatar
         message.content.members = await db_from_id_to_meta(user_list)
         for member in message.content.members:
-            await self.send_message_to_target(message, str(member.id))
+            await self.send_message_to_target(message, str(member))
 
     async def rcv_add_group_member(self, message: Message):
         if not isinstance(message.content.members, list):
@@ -216,7 +219,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.content.name = group.group_name
         message.content.avatar = group.group_avatar
         for member in message.content.members:
-            await self.send_message_to_target(message, str(member.id))
+            await self.send_message_to_target(message, str(member))
 
     async def rcv_apply_friend(self, message: Message):
         friend_id = message.receiver
@@ -393,6 +396,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
         await self.send_message_to_target(message, str(group_member))
 
+    async def rcv_set_top_message(self, message: Message):
+        group_id = message.receiver
+        message_id = message.content
+        try:
+            await db_set_top_message(group_id, message_id, self.user_id)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
+            return
+        for member in self.group_members[group_id]:
+            await self.send_message_to_target(message, str(member))
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -443,6 +458,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_ADD_GROUP_ADMIN: self.cb_add_or_remove_admin,
             MessageType.FUNC_REMOVE_GROUP_ADMIN: self.cb_add_or_remove_admin,
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_group_remove_member,
+            MessageType.FUNC_MESSAGE_BROADCAST: self.send_message_to_front(message),
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
@@ -463,11 +479,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.group_members[group_id] = []
             self.group_names[group_id] = message.content.name
             for member in message.content.members:
-                self.group_members[group_id].append(int(member.id))
+                self.group_members[group_id].append(int(member))
         else:
             for member in message.content.members:
-                if member.id not in self.group_members[group_id]:
-                    self.group_members[group_id].append(int(member.id))
+                if member not in self.group_members[group_id]:
+                    self.group_members[group_id].append(int(member))
             self.group_names[group_id] = message.content.name
         await self.send_message_to_front(message)
 
