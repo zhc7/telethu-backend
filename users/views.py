@@ -14,7 +14,7 @@ from utils.session import SessionData
 from utils.uid import globalIdMaker
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
-from utils.utils_require import check_require, CheckRequire, require
+from utils.utils_require import check_require, require
 
 
 def authentication(req: HttpRequest):
@@ -34,7 +34,6 @@ def authentication(req: HttpRequest):
     return user, password
 
 
-@CheckRequire
 @csrf_exempt  # 关闭csrf验证
 def login(req: HttpRequest):
     try:
@@ -64,7 +63,6 @@ def login(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt  # 关闭csrf验证
 def logout(req: HttpRequest):
     try:
@@ -84,7 +82,6 @@ def logout(req: HttpRequest):
     return request_success()
 
 
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def register(req: HttpRequest):
     if req.method != "POST":
@@ -156,7 +153,6 @@ def get_list(req: HttpRequest, list_name: str):
     return response_data
 
 
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_friend_list(req: HttpRequest):
     try:
@@ -167,7 +163,6 @@ def get_friend_list(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_apply_list(req: HttpRequest):
     try:
@@ -178,7 +173,6 @@ def get_apply_list(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_you_apply_list(req: HttpRequest):
     try:
@@ -189,7 +183,6 @@ def get_you_apply_list(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt
 def verification(signed_data):
     print("Your are in verification! ")
@@ -209,7 +202,6 @@ def verification(signed_data):
         return request_success()
 
 
-@CheckRequire
 @csrf_exempt
 def sendemail(req: HttpRequest):
     if req.method != "POST":
@@ -221,7 +213,6 @@ def sendemail(req: HttpRequest):
     email_sender(req, email, use_id)
 
 
-@CheckRequire
 @csrf_exempt
 def avatar(req: HttpRequest, hash_code: str = None):
     if req.method == "POST":
@@ -263,7 +254,6 @@ def avatar(req: HttpRequest, hash_code: str = None):
         return response
 
 
-@CheckRequire
 @csrf_exempt
 def profile(req: HttpRequest):
     if req.method == "POST":
@@ -281,7 +271,6 @@ def profile(req: HttpRequest):
         return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt
 def user_search(req: HttpRequest):
     if req.method != "POST":
@@ -323,7 +312,6 @@ def user_search(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt
 def delete_user(req: HttpRequest, user_id):
     # First, judge whether the user_id is logged in.
