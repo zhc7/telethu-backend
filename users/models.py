@@ -1,5 +1,7 @@
 from django.db import models
+
 from utils.data import MessageStatusType
+
 
 class User(models.Model):
     id = models.AutoField(
@@ -15,7 +17,10 @@ class User(models.Model):
     created_time = models.DateTimeField(auto_now_add=True)
     verification = models.BooleanField(default=False)
     profile = models.JSONField(default=dict)
-    is_deleted = models.BooleanField(default=False) # If the user is deleted, default not to be deleted.
+    is_deleted = models.BooleanField(
+        default=False
+    )  # If the user is deleted, default not to be deleted.
+
     class Meta:
         pass
 
@@ -60,9 +65,12 @@ class GroupList(models.Model):
     )
     group_members = models.ManyToManyField(User, related_name="group_members")
     # # 群主
-    group_owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_owner')
+    group_owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="group_owner"
+    )
     # # 群管理员
-    group_admin = models.ManyToManyField(User, related_name='group_admin')
+    group_admin = models.ManyToManyField(User, related_name="group_admin")
+
 
 class MessageList(models.Model):
     message_id = models.AutoField(primary_key=True)
@@ -74,5 +82,7 @@ class MessageList(models.Model):
     receiver = models.IntegerField(blank=False, null=True)
     info = models.CharField(max_length=256, default="")
     who_read = models.ManyToManyField(User, related_name="who_read")
-    status = models.IntegerField(choices=[(status.value, status.name) for status in MessageStatusType], default=MessageStatusType.NORMAL)
-
+    status = models.IntegerField(
+        choices=[(status.value, status.name) for status in MessageStatusType],
+        default=MessageStatusType.NORMAL,
+    )

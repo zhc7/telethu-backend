@@ -68,18 +68,24 @@ def chat_history(request):
     return JsonResponse(messages_list, safe=False)
     # TODO: 利用上述字段获取数据库中数据
 
+
 def recall(request, message_id):
     m = MessageList.objects.get(message_id=message_id)
     if m is None:
-        return request_failed(2, "Can't recall a message that doesn't exist! ", status_code=401)
+        return request_failed(
+            2, "Can't recall a message that doesn't exist! ", status_code=401
+        )
     else:
         pass
         # Execute a rather complicated logic
 
+
 def delete(request, message_id):
     m = MessageList.objects.get(message_id=message_id)
     if m is None:
-        return request_failed(2, "Can't delete a message that doesn't exist! ", status_code=401)
+        return request_failed(
+            2, "Can't delete a message that doesn't exist! ", status_code=401
+        )
     else:
         pass
     

@@ -7,7 +7,6 @@ from django.views.decorators.csrf import csrf_exempt
 
 from files.models import Multimedia
 from utils.utils_request import request_failed, request_success, BAD_METHOD
-from utils.utils_require import CheckRequire
 
 
 def check_type(m_type, detected_mime):
@@ -33,7 +32,6 @@ def check_type(m_type, detected_mime):
 
 
 # Create your views here.
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def load(req: HttpRequest, hash_code: str):
     # check the method

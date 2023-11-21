@@ -1,21 +1,24 @@
 import hashlib
 import json
 import os
+
+import magic
+from django.core.signing import loads
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from users.models import User
-from utils.data import UserData
+from django.views.decorators.http import require_GET
+
 from users.email import email_sender
+from users.models import User, GroupList
+from utils.data import UserData, GroupData
 from utils.session import SessionData
 from utils.uid import globalIdMaker
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
-from utils.utils_require import check_require, CheckRequire, require
-from django.core.signing import loads
-import magic
+from utils.utils_require import check_require, require
 
 
-def Authentication(req: HttpRequest):
+def authentication(req: HttpRequest):
     # 检查请求方法
     if req.method != "POST":
         raise KeyError("Bad method", 400)
@@ -32,11 +35,10 @@ def Authentication(req: HttpRequest):
     return user, password
 
 
-@CheckRequire
 @csrf_exempt  # 关闭csrf验证
 def login(req: HttpRequest):
     try:
-        user, password = Authentication(req)
+        user, password = authentication(req)
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
@@ -62,11 +64,10 @@ def login(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt  # 关闭csrf验证
 def logout(req: HttpRequest):
     try:
-        user, password = Authentication(req)
+        user, password = authentication(req)
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
@@ -82,7 +83,6 @@ def logout(req: HttpRequest):
     return request_success()
 
 
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def register(req: HttpRequest):
     if req.method != "POST":
@@ -116,6 +116,31 @@ def register(req: HttpRequest):
     user.save()
     email_sender(req, user_email, user.id)
     return request_success()
+
+
+@require_GET
+def get_user_info(req: HttpRequest, user_id: int):
+    user = User.objects.get(id=user_id)
+    if user is None:
+        group = GroupList.objects.get(group_id=user_id)
+        if group is None:
+            return request_failed(2, "No such user", status_code=404)
+        response_data = GroupData(
+            id=group.group_id,
+            name=group.group_name,
+            avatar=group.group_avatar,
+            members=group.group_members.all(),  # TODO: not sure if this is correct
+            owner=group.group_owner,
+            admin=group.group_admin.all(),  # TODO: same above
+        ).model_dump()
+    else:
+        response_data = UserData(
+            id=user.id,
+            name=user.username,
+            avatar=user.avatar,
+            email=user.userEmail,
+        ).model_dump()
+    return request_success(response_data)
 
 
 def get_list(req: HttpRequest, list_name: str):
@@ -154,7 +179,6 @@ def get_list(req: HttpRequest, list_name: str):
     return response_data
 
 
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_friend_list(req: HttpRequest):
     try:
@@ -165,7 +189,6 @@ def get_friend_list(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_apply_list(req: HttpRequest):
     try:
@@ -176,7 +199,6 @@ def get_apply_list(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt  # 允许跨域,便于测试
 def get_you_apply_list(req: HttpRequest):
     try:
@@ -187,7 +209,6 @@ def get_you_apply_list(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt
 def verification(signed_data):
     print("Your are in verification! ")
@@ -207,7 +228,6 @@ def verification(signed_data):
         return request_success()
 
 
-@CheckRequire
 @csrf_exempt
 def sendemail(req: HttpRequest):
     if req.method != "POST":
@@ -219,7 +239,6 @@ def sendemail(req: HttpRequest):
     email_sender(req, email, use_id)
 
 
-@CheckRequire
 @csrf_exempt
 def avatar(req: HttpRequest, hash_code: str = None):
     if req.method == "POST":
@@ -261,7 +280,6 @@ def avatar(req: HttpRequest, hash_code: str = None):
         return response
 
 
-@CheckRequire
 @csrf_exempt
 def profile(req: HttpRequest):
     if req.method == "POST":
@@ -279,7 +297,6 @@ def profile(req: HttpRequest):
         return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt
 def user_search(req: HttpRequest):
     if req.method != "POST":
@@ -321,7 +338,6 @@ def user_search(req: HttpRequest):
     return request_success(response_data)
 
 
-@CheckRequire
 @csrf_exempt
 def delete_user(req: HttpRequest):
     session = SessionData(req)

@@ -70,16 +70,3 @@ def check_require(val, typename):
         return True
     else:
         return False
-
-
-def CheckRequire(check_fn):
-    @wraps(check_fn)
-    def decorated(*args, **kwargs):
-        try:
-            return check_fn(*args, **kwargs)
-        except Exception as e:
-            # Handle exception e
-            error_code = -2 if len(e.args) < 2 else e.args[1]
-            return request_failed(error_code, e.args[0], 400)  # Refer to below
-
-    return decorated

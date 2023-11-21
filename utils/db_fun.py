@@ -23,16 +23,8 @@ def db_query_group_info(group_id_list) -> dict[int, GroupData]:
             owner=group.group_owner.id,
             admin=[],
         )
-        users_info = []
         for user in group.group_members.all():
-            user_info = UserData(
-                id=user.id,
-                name=user.username,
-                avatar=user.avatar,
-                email=user.userEmail,
-            )
-            users_info.append(user_info)
-        group_date.members = users_info
+            group_date.members.append(user.id)
         for admin in group.group_admin.all():
             group_date.admin.append(admin.id)
         group_info[group_id] = group_date
@@ -133,7 +125,7 @@ def db_add_member(self_user_id, self_friend_list, group_id, add_member):
 
 
 @database_sync_to_async
-def db_change_group_owner(group_id,old_owner,new_owner):
+def db_change_group_owner(group_id, old_owner, new_owner):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
         raise KeyError("group not exist")
@@ -147,6 +139,7 @@ def db_change_group_owner(group_id,old_owner,new_owner):
     group.group_owner = user
     group.save()
     return group.group_id
+
 
 @database_sync_to_async
 def db_from_id_to_meta(id_list):
@@ -252,6 +245,55 @@ def db_create_multimedia(self_user_id, m_type, md5, t_type, user_or_group):
             multimedia.multimedia_group_listener.add(user_or_group)
             multimedia.save()
     return
+
+
+@database_sync_to_async
+def db_add_or_remove_admin(group_id, admin_id, user_id, if_add):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group not exist")
+    if group.group_owner.id != user_id:
+        raise KeyError("you are not the owner")
+    if group.group_owner.id == admin_id:
+        raise KeyError("you are the owner")
+    user = User.objects.filter(id=admin_id).first()
+    if user is None:
+        raise KeyError("new admin not exist")
+    if user not in group.group_members.all():
+        raise KeyError("new admin not in group")
+    if if_add:
+        if user in group.group_admin.all():
+            raise KeyError("already admin")
+        group.group_admin.add(user)
+    else:
+        if user not in group.group_admin.all():
+            raise KeyError("not admin")
+        group.group_admin.remove(user)
+    group.save()
+    return True
+
+
+@database_sync_to_async
+def db_group_remove_member(group_id, remove_id, user_id):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group not exist")
+    if group.group_owner.id != user_id and user_id not in group.group_admin.all():
+        raise KeyError("you are not the owner or admin")
+    user = User.objects.filter(id=remove_id).first()
+    if user is None:
+        raise KeyError("remove user not exist")
+    if user not in group.group_members.all():
+        raise KeyError("remove user not in group")
+    if user == group.group_owner:
+        raise KeyError("you cannot remove owner")
+    if user in group.group_admin.all() and user_id != group.group_owner.id:
+        raise KeyError("you cannot remove admin if you are not owner")
+    group.group_members.remove(user)
+    if user in group.group_admin.all():
+        group.group_admin.remove(user)
+    group.save()
+    return True
 
 
 @database_sync_to_async

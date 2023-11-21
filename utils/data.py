@@ -29,6 +29,9 @@ class MessageType(enum.IntEnum):
     FUNC_SEND_META = 18
     FUNC_READ_MESSAGE = 19
     FUNC_LEAVE_GROUP = 20
+    FUNC_ADD_GROUP_ADMIN = 21
+    FUNC_REMOVE_GROUP_ADMIN = 22
+    FUNC_REMOVE_GROUP_MEMBER = 23
 
 
 class TargetType(enum.IntEnum):
@@ -87,7 +90,8 @@ class FriendType(enum.IntEnum):
     already_been_reject = 7
     relationship_not_exist = 8
     friend_not_exist = 9
-    
+
+
 class MessageStatusType(enum.IntEnum):
     NORMAL = 0
     RECALLED = 1
