@@ -6,6 +6,7 @@ import magic
 from django.core.signing import loads
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
 
 from users.email import email_sender
 from users.models import User
@@ -115,6 +116,20 @@ def register(req: HttpRequest):
     user.save()
     email_sender(req, user_email, user.id)
     return request_success()
+
+
+@require_GET
+def get_user_info(req: HttpRequest, user_id: int):
+    user = User.objects.get(id=user_id)
+    if user is None:
+        return request_failed(2, "User not exists", status_code=404)
+    response_data = UserData(
+        id=user.id,
+        name=user.username,
+        avatar=user.avatar,
+        email=user.userEmail,
+    ).model_dump()
+    return request_success(response_data)
 
 
 def get_list(req: HttpRequest, list_name: str):
