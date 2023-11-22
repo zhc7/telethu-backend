@@ -8,8 +8,6 @@ from users.models import MessageList
 from utils.data import Message
 from utils.utils_request import request_failed, request_success
 from django.views.decorators.csrf import csrf_exempt
-from utils.utils_require import check_require, CheckRequire, require
-
 
 def index(request):
     print("You are in index")
@@ -89,7 +87,9 @@ def delete(request, message_id):
     else:
         pass
     
+@csrf_exempt
 def edit(request, message_id):
+    print("editing! ")
     new_message = request.GET.get("new_message", None)
     if new_message is None:
         return request_failed(2, "New message undetected! ", status_code=401)
