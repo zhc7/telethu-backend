@@ -82,7 +82,7 @@ class GroupList(models.Model):
     group_members = models.ManyToManyField(User, related_name="group_members")
     # # 群主
     group_owner = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="group_owner"
+        User, on_delete=models.CASCADE, related_name="group_owner", null=True
     )
     # # 群管理员
     group_admin = models.ManyToManyField(User, related_name="group_admin")

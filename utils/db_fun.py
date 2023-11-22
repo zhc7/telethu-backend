@@ -82,7 +82,8 @@ def db_query_group(self_user_id):
             group_members_id.append(int(user.id))
         group_members[group.group_id] = group_members_id
         group_names[group.group_id] = group.group_name
-        group_owner[group.group_id] = group.group_owner.id
+        if group.group_owner is not None:
+            group_owner[group.group_id] = group.group_owner.id
         group_admin[group.group_id] = []
         for admin in group.group_admin.all():
             group_admin[group.group_id].append(admin.id)
@@ -132,6 +133,8 @@ def db_change_group_owner(group_id, old_owner, new_owner):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
         raise KeyError("group not exist")
+    if group.group_owner is None:
+        raise KeyError("group owner not exist,this group must be deleted")
     if group.group_owner.id != old_owner:
         raise KeyError("you are not the owner")
     user = User.objects.filter(id=new_owner).first()
@@ -255,6 +258,8 @@ def db_add_or_remove_admin(group_id, admin_id, user_id, if_add):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
         raise KeyError("group not exist")
+    if group.group_owner is None:
+        raise KeyError("group owner not exist,this group must be deleted")
     if group.group_owner.id != user_id:
         raise KeyError("you are not the owner")
     if group.group_owner.id == admin_id:
@@ -281,6 +286,8 @@ def db_group_remove_member(group_id, remove_id, user_id):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
         raise KeyError("group not exist")
+    if group.group_owner is None:
+        raise KeyError("group owner not exist,this group must be deleted")
     if group.group_owner.id != user_id and user_id not in group.group_admin.all():
         raise KeyError("you are not the owner or admin")
     user = User.objects.filter(id=remove_id).first()
@@ -304,6 +311,8 @@ def db_add_or_del_top_message(group_id, message_id, user_id, if_add):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
         raise KeyError("group you chose not exist")
+    if group.group_owner is None:
+        raise KeyError("group owner not exist,this group must be deleted")
     if group.group_owner.id != user_id and user_id not in group.group_admin.all():
         raise KeyError("you are not the owner or admin")
     message = MessageList.objects.filter(message_id=message_id).first()
