@@ -129,9 +129,9 @@ def get_user_info(req: HttpRequest, user_id: int):
             id=group.group_id,
             name=group.group_name,
             avatar=group.group_avatar,
-            members=group.group_members.all(),  # TODO: not sure if this is correct
+            members=[member.id for member in group.group_members.all()],
             owner=group.group_owner,
-            admin=group.group_admin.all(),  # TODO: same above
+            admin=[admin.id for admin in group.group_admin.all()],
         ).model_dump()
     else:
         response_data = UserData(
