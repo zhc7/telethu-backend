@@ -8,6 +8,7 @@ from utils.data import (
     FriendType,
 )
 from utils.uid import globalIdMaker
+from utils.data import MessageStatusType
 
 
 @database_sync_to_async
@@ -354,3 +355,10 @@ def db_reduce_person(group_id, person_id):
     group.group_members.remove(person_id)
     group.save()
     return group.group_id
+
+@database_sync_to_async
+def db_recall_message(message_id):
+    message = MessageList.objects.get(message_id=message_id)
+    message.status = MessageStatusType.RECALLED
+    message.save()
+    return
