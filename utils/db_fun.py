@@ -300,7 +300,7 @@ def db_group_remove_member(group_id, remove_id, user_id):
 
 
 @database_sync_to_async
-def db_set_top_message(group_id, message_id, user_id):
+def db_add_or_del_top_message(group_id, message_id, user_id, if_add):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
         raise KeyError("group you chose not exist")
@@ -311,9 +311,14 @@ def db_set_top_message(group_id, message_id, user_id):
         raise KeyError("message not exist")
     if message.receiver != group_id:
         raise KeyError("message not in group")
-    if message in group.group_top_message.all():
-        raise KeyError("message already top")
-    group.group_top_message.add(message)
+    if if_add:
+        if message in group.group_top_message.all():
+            raise KeyError("message already top")
+        group.group_top_message.add(message)
+    else:
+        if message not in group.group_top_message.all():
+            raise KeyError("message not top")
+        group.group_top_message.remove(message)
     group.save()
     return True
 

@@ -20,7 +20,7 @@ from utils.db_fun import (
     db_change_group_owner,
     db_add_or_remove_admin,
     db_group_remove_member,
-    db_set_top_message,
+    db_add_or_del_top_message,
 )
 
 from utils.ack_manager import AckManager
@@ -175,7 +175,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_ADD_GROUP_ADMIN: self.rcv_add_or_reduce_admin,
             MessageType.FUNC_REMOVE_GROUP_ADMIN: self.rcv_add_or_reduce_admin,
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.rcv_remove_group_member,
-            MessageType.FUNC_MESSAGE_BROADCAST: self.rcv_set_top_message,
+            MessageType.FUNC_MESSAGE_ADD_BROADCAST: self.rcv_add_or_del_top_message,
+            MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.rcv_add_or_del_top_message,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -396,11 +397,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
         await self.send_message_to_target(message, str(group_member))
 
-    async def rcv_set_top_message(self, message: Message):
+    async def rcv_add_or_del_top_message(self, message: Message):
         group_id = message.receiver
         message_id = message.content
+        if message.m_type == MessageType.FUNC_MESSAGE_ADD_BROADCAST:
+            if_add = True
+        else:
+            if_add = False
         try:
-            await db_set_top_message(group_id, message_id, self.user_id)
+            await db_add_or_del_top_message(group_id, message_id, self.user_id, if_add)
         except KeyError as e:
             message.content = str(e)
             await self.send_message_to_front(message)
@@ -458,7 +463,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_ADD_GROUP_ADMIN: self.cb_add_or_remove_admin,
             MessageType.FUNC_REMOVE_GROUP_ADMIN: self.cb_add_or_remove_admin,
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_group_remove_member,
-            MessageType.FUNC_MESSAGE_BROADCAST: self.send_message_to_front(message),
+            MessageType.FUNC_MESSAGE_ADD_BROADCAST: self.send_message_to_front,
+            MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.send_message_to_front,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
