@@ -30,7 +30,7 @@ def authentication(req: HttpRequest):
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
     if not User.objects.filter(userEmail=user_email, is_deleted=False).exists():
-        raise KeyError("User not exists", 401)
+        raise KeyError("User not exists", 404)
     user = User.objects.get(userEmail=user_email, is_deleted=False)
     return user, password
 
@@ -44,7 +44,7 @@ def login(req: HttpRequest):
         return request_failed(2, error_message, status_code=status_code)
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
-        return request_failed(2, "Wrong password", status_code=401)
+        return request_failed(2, "Wrong password", status_code=404)
     user_id = user.id
     token = generate_jwt_token(user_id)
     session = SessionData(req)
@@ -52,7 +52,7 @@ def login(req: HttpRequest):
         return request_failed(
             2,
             f"Login failed because user {session.user_id} has login",
-            status_code=401,
+            status_code=404,
         )
     session.user_id = user_id
     response_data = {
@@ -74,10 +74,10 @@ def logout(req: HttpRequest):
     user_id = user.id
     session = SessionData(req)
     if user_id != session.user_id:
-        return request_failed(2, "Logging out with the wrong user!", status_code=401)
+        return request_failed(2, "Logging out with the wrong user!", status_code=404)
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
-        return request_failed(2, "Wrong password", status_code=401)
+        return request_failed(2, "Wrong password", status_code=404)
     session = SessionData(req)
     session.user_id = None
     return request_success()
@@ -98,7 +98,7 @@ def register(req: HttpRequest):
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
     if User.objects.filter(userEmail=user_email, is_deleted=False).exists():
-        return request_failed(2, "userEmail already exists", status_code=401)
+        return request_failed(2, "userEmail already exists", status_code=404)
     if not check_require(username, "username"):
         return request_failed(2, "Invalid username", status_code=422)
     if not check_require(password, "password"):
@@ -223,7 +223,7 @@ def verification(signed_data):
     print("2")
     if user is None:
         print("3")
-        return request_failed(2, "No such user in email verification!", status_code=401)
+        return request_failed(2, "No such user in email verification!", status_code=404)
     else:
         print("user found!")
         user.verification = True
@@ -351,7 +351,7 @@ def delete_user(req: HttpRequest):
     user = User.objects.get(id=session.user_id)
     # exception
     if user is None:
-        return request_failed(2, "Deleting a user that doesn't exist!", status_code=401)
+        return request_failed(2, "Deleting a user that doesn't exist!", status_code=404)
     else:
         session.user_id = None
         user.userEmail = user.userEmail + "is_deleted"
