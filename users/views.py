@@ -130,7 +130,7 @@ def get_user_info(req: HttpRequest, user_id: int):
             name=group.group_name,
             avatar=group.group_avatar,
             members=[member.id for member in group.group_members.all()],
-            owner=group.group_owner,
+            owner= None if group.group_owner is None else group.group_owner.id,
             admin=[admin.id for admin in group.group_admin.all()],
         ).model_dump()
     else:
