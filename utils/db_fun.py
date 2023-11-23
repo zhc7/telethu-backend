@@ -90,6 +90,24 @@ def db_query_group(self_user_id):
             group_admin[group.group_id].append(admin.id)
     return group_id, group_members, group_names, group_owner, group_admin
 
+@database_sync_to_async
+def db_query_fri_and_gro_id(user_id):
+    fri_gro_id = []
+    friends = Friendship.objects.filter(user1=user_id)
+    friends = friends | Friendship.objects.filter(user2=user_id)
+    for friend in friends:
+        if friend.state == 1:
+            if str(friend.user1.id) == str(user_id):
+                friend_id = friend.user2.id
+            else:
+                friend_id = friend.user1.id
+            if friend_id not in fri_gro_id:
+                fri_gro_id.append(friend_id)
+    groups = GroupList.objects.filter(group_members=user_id)
+    for group in groups:
+        if group.group_id not in fri_gro_id:
+            fri_gro_id.append(group.group_id)
+    return fri_gro_id
 
 @database_sync_to_async
 def db_build_group(friend_list, user_id, group_name, group_members):

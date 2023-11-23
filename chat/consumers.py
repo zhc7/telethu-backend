@@ -21,6 +21,7 @@ from utils.db_fun import (
     db_add_or_remove_admin,
     db_group_remove_member,
     db_add_or_del_top_message,
+    db_query_fri_and_gro_id,
 )
 
 from utils.ack_manager import AckManager
@@ -70,7 +71,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.start_consuming()
         await self.storage_start_consuming()
         # send meta info to front
-        await self.rcv_send_meta_info()
+        # await self.rcv_send_meta_info()
+        await self.rcv_send_init_id()
 
     async def start_consuming(self):
         exchange_name = "user_" + str(self.user_id)  # name it after user_id
@@ -293,6 +295,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await db_friendship_change(self.user_id, friend_id, 3)
             self.friend_list.remove(friend_id)
         await self.send_message_to_target(message, str(self.user_id))
+
+    async def rcv_send_init_id(self, _: Message = None):
+        contacts_info: list[int] = await db_query_fri_and_gro_id(self.user_id)
+        await self.send(text_data=json.dumps(contacts_info))
+
 
     async def rcv_send_meta_info(self, _: Message = None):
         group_info: dict[int, GroupData] = await db_query_group_info(self.group_list)
