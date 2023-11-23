@@ -251,7 +251,7 @@ def avatar(req: HttpRequest, hash_code: str = None):
         detected_mime = mime.from_buffer(avatar_real)
         print(detected_mime)
         if "png" not in detected_mime.lower():
-            return request_failed(2, "the file type is not correct", status_code=401)
+            return request_failed(2, "the file type is not correct", status_code=406)
         # get the md5
         md5_hash = hashlib.md5()
         md5_hash.update(avatar_real)
@@ -274,9 +274,9 @@ def avatar(req: HttpRequest, hash_code: str = None):
         if hash_code:
             avatar_path = "./files/avatar_storage/" + hash_code
         if avatar_path is None:
-            return request_failed(2, "the avatar is not exist", status_code=401)
+            return request_failed(2, "the avatar is not exist", status_code=404)
         if not os.path.exists(avatar_path):
-            return request_failed(2, "the avatar is not exist", status_code=401)
+            return request_failed(2, "the avatar is not exist", status_code=404)
         with open(avatar_path, "rb") as f:
             avatar_real = f.read()
         response = HttpResponse(avatar_real, content_type="image/jpeg")
