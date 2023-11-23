@@ -120,20 +120,23 @@ def register(req: HttpRequest):
 
 @require_GET
 def get_user_info(req: HttpRequest, user_id: int):
-    user = User.objects.get(id=user_id)
-    if user is None:
-        group = GroupList.objects.get(group_id=user_id)
-        if group is None:
+    if_user_exit = User.objects.filter(id=user_id, is_deleted=False).exists()
+    if if_user_exit is False:
+        if_group_exit = GroupList.objects.filter(group_id=user_id).exists()
+        if if_group_exit is False:
             return request_failed(2, "No such user", status_code=404)
-        response_data = GroupData(
-            id=group.group_id,
-            name=group.group_name,
-            avatar=group.group_avatar,
-            members=[member.id for member in group.group_members.all()],
-            owner= None if group.group_owner is None else group.group_owner.id,
-            admin=[admin.id for admin in group.group_admin.all()],
-        ).model_dump()
+        else:
+            group = GroupList.objects.get(group_id=user_id)
+            response_data = GroupData(
+                id=group.group_id,
+                name=group.group_name,
+                avatar=group.group_avatar,
+                members=[member.id for member in group.group_members.all()],
+                owner= None if group.group_owner is None else group.group_owner.id,
+                admin=[admin.id for admin in group.group_admin.all()],
+            ).model_dump()
     else:
+        user = User.objects.get(id=user_id)
         response_data = UserData(
             id=user.id,
             name=user.username,
