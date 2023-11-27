@@ -302,7 +302,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         contacts_info: list[int] = await db_query_fri_and_gro_id(self.user_id)
         await self.send(text_data=json.dumps(contacts_info))
 
-
     async def rcv_send_meta_info(self, _: Message = None):
         group_info: dict[int, GroupData] = await db_query_group_info(self.group_list)
         friends_id = await db_query_friends(self.user_id)
@@ -318,7 +317,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_sender, message_receiver, message_t_type = await db_add_read_message(
             self.group_list, message_id, self.user_id
         )
-        if type(message_sender) == int:
+        if isinstance(message_sender, int):
             message.receiver = message_receiver
             message.t_type = message_t_type
             message.sender = self.user_id

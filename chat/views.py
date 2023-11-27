@@ -6,7 +6,8 @@ from django.shortcuts import render
 from utils.data import MessageStatusType
 from users.models import MessageList
 from utils.data import Message
-from utils.utils_request import request_failed, request_success
+from utils.session import SessionData
+from utils.utils_request import request_failed, request_success, BAD_METHOD
 from django.views.decorators.csrf import csrf_exempt
 
 def index(request):
@@ -65,31 +66,3 @@ def chat_history(request):
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
     # TODO: 利用上述字段获取数据库中数据
-
-def delete(request, message_id):
-    m = MessageList.objects.get(message_id=message_id)
-    if m is None:
-        return request_failed(
-            2, "Can't delete a message that doesn't exist! ", status_code=401
-        )
-    else:
-        pass
-    
-@csrf_exempt
-def edit(request, message_id):
-    print("editing! ")
-    new_message = request.GET.get("new_message", None)
-    if new_message is None:
-        return request_failed(2, "New message undetected! ", status_code=401)
-    user_id = int(request.user_id)
-    m = MessageList.objects.get(message_id=message_id)
-    if m is None:
-        return request_failed(2, "Can't edit a message that doesn't exist! ", status_code=401)
-    else:
-        if m.sender != user_id:
-            return request_failed(2, "Can't edit a message sent by others! ", status_code=401)
-        else:
-            m.content = new_message
-            m.status = MessageStatusType.EDITED
-            m.save()
-            return request_success()

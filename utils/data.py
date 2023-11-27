@@ -1,5 +1,5 @@
 import enum
-
+from enum import IntFlag
 from pydantic import BaseModel
 
 
@@ -96,7 +96,7 @@ class FriendType(enum.IntEnum):
     friend_not_exist = 9
 
 
-class MessageStatusType(enum.IntEnum):
+class MessageStatusType(IntFlag):
     NORMAL = 0
     RECALLED = 1
     EDITED = 2
