@@ -380,3 +380,32 @@ def db_recall_message(message_id):
     message.status = MessageStatusType.RECALLED
     message.save()
     return
+
+@database_sync_to_async
+def db_recall_member_message(message_id,group_id,user_id):
+    message = MessageList.objects.filter(message_id=message_id).first()
+    if message_id is None:
+        raise KeyError("message not exist")
+    if message.receiver != group_id:
+        raise KeyError("message not in group")
+    group = GroupList.objects.filter(group_id=group_id).first()
+    sender_id = message.sender
+    if group is None:
+        raise KeyError("group not exist")
+    if group.group_owner is None:
+        raise KeyError("group owner not exist,this group must be deleted")
+    if user_id == group.group_owner.id:
+        message.status = MessageStatusType.RECALLED
+        message.save()
+        return
+    elif user_id in group.group_admin.all():
+        if sender_id == group.group_owner.id:
+            raise KeyError("you cannot recall owner's message")
+        elif sender_id in group.group_admin.all():
+            raise KeyError("you cannot recall admin's message if you are not owner")
+        else:
+            message.status = MessageStatusType.RECALLED
+            message.save()
+            return
+    else:
+        raise KeyError("you are not the owner or admin")

@@ -22,6 +22,7 @@ from utils.db_fun import (
     db_group_remove_member,
     db_add_or_del_top_message,
     db_query_fri_and_gro_id,
+    db_recall_member_message,
 )
 
 from utils.ack_manager import AckManager
@@ -179,6 +180,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.rcv_remove_group_member,
             MessageType.FUNC_MESSAGE_ADD_BROADCAST: self.rcv_add_or_del_top_message,
             MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.rcv_add_or_del_top_message,
+            MessageType.FUNC_CALLBACK_MEMBER_MESSAGE: self.rcv_callback_member_message,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -420,6 +422,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
         for member in self.group_members[group_id]:
             await self.send_message_to_target(message, str(member))
 
+    async def rcv_callback_member_message(self, message: Message):
+        message_id = message.content
+        group_id = message.receiver
+        try:
+            message = await db_recall_member_message(group_id, message_id)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
+            return
+        for member in self.group_members[group_id]:
+            await self.send_message_to_target(message, str(member))
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -472,6 +486,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_group_remove_member,
             MessageType.FUNC_MESSAGE_ADD_BROADCAST: self.send_message_to_front,
             MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.send_message_to_front,
+            MessageType.FUNC_CALLBACK_MEMBER_MESSAGE: self.send_message_to_front,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 

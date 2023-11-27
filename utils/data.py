@@ -34,6 +34,7 @@ class MessageType(enum.IntEnum):
     FUNC_REMOVE_GROUP_MEMBER = 23
     FUNC_MESSAGE_ADD_BROADCAST = 24
     FUNC_MESSAGE_DEL_BROADCAST = 25
+    FUNC_CALLBACK_MEMBER_MESSAGE = 26
 
 
 class TargetType(enum.IntEnum):
