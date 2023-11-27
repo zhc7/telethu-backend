@@ -409,3 +409,30 @@ def db_recall_member_message(message_id,group_id,user_id):
             return
     else:
         raise KeyError("you are not the owner or admin")
+
+@database_sync_to_async
+def db_delete_message(message_id, user_id):
+    if message_id is None:
+        raise KeyError("message_id not found")
+    if user_id is None:
+        raise KeyError("user_id not found")
+    message = MessageList.objects.filter(message_id=message_id).first()
+    del_user = User.objects.filter(id=user_id)
+    if message is None:
+        raise KeyError("message not exist")
+    if del_user is None:
+        raise KeyError("user not exist")
+    if message.t_type == 0:
+        # personal message
+        if message.sender != user_id and message.receiver != user_id:
+            raise KeyError("You can't delete a message that is neither sent or received by you!")
+    else:
+        # group message, receiver stands for group_id. We just need to determine whether this user is in the group.
+        group = GroupList.objects.filter(group_id=message.receiver).first()
+        if group is None:
+            raise KeyError("group not found")
+        is_member = del_user in group.group_members.all()
+        if not is_member:
+            raise KeyError("You can't delete a message that's not sent to a group that you're in!")
+    message.deleted_users.add(del_user)
+    return
