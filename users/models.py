@@ -11,7 +11,7 @@ class User(models.Model):
     userEmail = models.EmailField(unique=True, max_length=128)
     avatar = models.CharField(
         max_length=256,
-        default="0fd03cd9d6148606533a492937848465",
+        default="22933c1646d1f0042e39d7471e42f33b",
     )
     created_time = models.DateTimeField(auto_now_add=True)
     verification = models.BooleanField(default=False)
@@ -77,7 +77,7 @@ class GroupList(models.Model):
     created_time = models.DateTimeField(auto_now_add=True)
     group_avatar = models.CharField(
         max_length=256,
-        default="0fd03cd9d6148606533a492937848465",
+        default="22933c1646d1f0042e39d7471e42f33b",
     )
     group_members = models.ManyToManyField(User, related_name="group_members")
     # # 群主
