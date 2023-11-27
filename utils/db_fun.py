@@ -409,6 +409,19 @@ def db_recall_member_message(message_id,group_id,user_id):
             return
     else:
         raise KeyError("you are not the owner or admin")
+    
+@database_sync_to_async
+def db_recall_message(message_id, user_id):
+    if message_id is None:
+        raise KeyError("message_id not found")
+    if user_id is None:
+        raise KeyError("user_id not found")
+    message = MessageList.objects.filter(message_id=message_id).first()
+    recaller = User.objects.filter(id=user_id)
+    if message is None:
+        raise KeyError("message not exist")
+    if recaller is None:
+        raise KeyError("user not exist")
 
 @database_sync_to_async
 def db_delete_message(message_id, user_id):
@@ -434,7 +447,8 @@ def db_delete_message(message_id, user_id):
         is_member = del_user in group.group_members.all()
         if not is_member:
             raise KeyError("You can't delete a message that's not sent to a group that you're in!")
-    message.deleted_users.add(del_user)
+    if del_user not in message.deleted_users.all():
+        message.deleted_users.add(del_user)
     return
 
 @database_sync_to_async
