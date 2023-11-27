@@ -436,3 +436,24 @@ def db_delete_message(message_id, user_id):
             raise KeyError("You can't delete a message that's not sent to a group that you're in!")
     message.deleted_users.add(del_user)
     return
+
+@database_sync_to_async
+def db_edit_message(message_id, user_id, new_content):
+    if message_id is None:
+        raise KeyError("message_id not found")
+    if user_id is None:
+        raise KeyError("user_id not found")
+    if new_content is None:
+        raise KeyError("new_content not found")
+    message = MessageList.objects.filter(message_id=message_id).first()
+    editor = User.objects.filter(id=user_id)
+    if message is None:
+        raise KeyError("message not exist")
+    if editor is None:
+        raise KeyError("user not exist")
+    # Only the sender can edit the message he sent.
+    if message.sender != editor:
+        raise KeyError("You can't edit a message sent by others!")
+    message.content = new_content
+    message.status = MessageStatusType.EDITED
+    return
