@@ -257,9 +257,9 @@ def avatar(req: HttpRequest, hash_code: str = None):
         md5_hash.update(avatar_real)
         real_md5 = md5_hash.hexdigest()
         # save the file
-        if not os.path.exists("./files/avatar_storage"):
-            os.mkdir("./files/avatar_storage")
-        file_path = "./files/avatar_storage/" + real_md5
+        if not os.path.exists("./files/file_storage"):
+            os.mkdir("./files/file_storage")
+        file_path = "./files/file_storage/" + real_md5
         if not os.path.exists(file_path):
             with open(file_path, "wb") as f:
                 f.write(avatar_real)
@@ -270,9 +270,9 @@ def avatar(req: HttpRequest, hash_code: str = None):
         return request_success()
     elif req.method == "GET":
         user = User.objects.get(id=req.user_id)
-        avatar_path = "./files/avatar_storage/" + user.avatar
+        avatar_path = "./files/file_storage/" + user.avatar
         if hash_code:
-            avatar_path = "./files/avatar_storage/" + hash_code
+            avatar_path = "./files/file_storage/" + hash_code
         if avatar_path is None:
             return request_failed(2, "the avatar is not exist", status_code=404)
         if not os.path.exists(avatar_path):
