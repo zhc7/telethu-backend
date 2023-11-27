@@ -199,7 +199,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         message.content.id = group.group_id  # set receiver to group id
         message.content.avatar = group.group_avatar
-        message.content.members = await db_from_id_to_meta(user_list)
+        message.content.members = user_list
         for member in message.content.members:
             await self.send_message_to_target(message, str(member))
 
