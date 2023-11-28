@@ -44,7 +44,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.retry = 5
-        self.timeout = 1
+        self.timeout = 5
         self.user_id = None
         self.rabbitmq_connection = None
         self.self_exchange = None
