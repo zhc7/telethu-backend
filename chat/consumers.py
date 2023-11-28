@@ -86,6 +86,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # get friend list
         self.friend_list = await db_query_friends(self.user_id)
         # get group list
+        await self.fresh_group_info()
+        # build queue and bind to exchange to receive message from rabbitmq server
+        queue_name_receive = self.scope["session"]["browser"]
+        queue_receive = await self.channel.declare_queue(queue_name_receive)
+        await queue_receive.bind(self.self_exchange)
+        # start consuming
+        await queue_receive.consume(self.callback)
+
+    async def fresh_group_info(self):
         (
             self.group_list,
             self.group_members,
@@ -93,12 +102,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.group_owner,
             self.group_admin,
         ) = await db_query_group(self.user_id)
-        # build queue and bind to exchange to receive message from rabbitmq server
-        queue_name_receive = self.scope["session"]["browser"]
-        queue_receive = await self.channel.declare_queue(queue_name_receive)
-        await queue_receive.bind(self.self_exchange)
-        # start consuming
-        await queue_receive.consume(self.callback)
 
     async def storage_start_consuming(self):
         # build storage exchange
@@ -183,6 +186,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.rcv_add_or_del_top_message,
             MessageType.FUNC_CALLBACK_MEMBER_MESSAGE: self.rcv_callback_member_message,
             MessageType.FUNC_DELETE_MESSAGE: self.rcv_delete_message,
+            MessageType.FUNC_EDIT_MESSAGE: self.rcv_edit_message,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -340,9 +344,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.t_type = TargetType.GROUP
         message.content = "user:id=" + str(user_id) + " leave group"
         group_other_members = self.group_members[group_id]
-        self.group_list.remove(group_id)
-        self.group_members.pop(group_id)
-        self.group_names.pop(group_id)
         await db_reduce_person(group_id, user_id)
         for member in group_other_members:
             await self.send_message_to_target(message, str(member))
@@ -386,10 +387,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content = str(e)
             await self.send_message_to_front(message)
             return
-        if if_add:
-            self.group_admin[group_id].append(group_admin)
-        else:
-            self.group_admin[group_id].remove(group_admin)
         for member in self.group_members[group_id]:
             await self.send_message_to_target(message, str(member))
 
@@ -514,58 +511,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send_message_to_front(message)
 
     async def cb_group_create_or_add(self, message: Message):
-        group_id = message.content.id  # this is group id
-        if group_id not in self.group_list:
-            self.group_list.append(group_id)
-            self.group_members[group_id] = []
-            self.group_names[group_id] = message.content.name
-            for member in message.content.members:
-                self.group_members[group_id].append(int(member))
-        else:
-            for member in message.content.members:
-                if member not in self.group_members[group_id]:
-                    self.group_members[group_id].append(int(member))
-            self.group_names[group_id] = message.content.name
+        await self.fresh_group_info()
         await self.send_message_to_front(message)
 
     async def cb_group_reduce(self, message: Message):
-        group_id = message.receiver
-        user_reduce = message.sender
-        if group_id in self.group_list:
-            if user_reduce in self.group_members[group_id]:
-                self.group_members[group_id].remove(int(user_reduce))
-            if user_reduce == self.user_id:
-                self.group_list.remove(group_id)
-                self.group_members.pop(group_id)
-                self.group_names.pop(group_id)
+        await self.fresh_group_info()
         await self.send_message_to_front(message)
 
     async def cb_group_change_owner(self, message: Message):
-        self.group_owner[message.content] = message.receiver
+        await self.fresh_group_info()
         await self.send_message_to_front(message)
 
     async def cb_add_or_remove_admin(self, message: Message):
-        if message.m_type == MessageType.FUNC_ADD_GROUP_ADMIN:
-            if message.receiver not in self.group_admin[message.content]:
-                self.group_admin[message.content].append(message.receiver)
-        else:
-            if message.receiver in self.group_admin[message.content]:
-                self.group_admin[message.content].remove(message.receiver)
+        await self.fresh_group_info()
         await self.send_message_to_front(message)
 
     async def cb_group_remove_member(self, message: Message):
-        group_id = message.content
-        user_remove = message.receiver
-        if self.user_id == user_remove and group_id in self.group_list:
-            self.group_list.remove(group_id)
-            self.group_members.pop(group_id)
-            self.group_names.pop(group_id)
-        else:
-            if group_id in self.group_list:
-                if user_remove in self.group_members[group_id]:
-                    self.group_members[group_id].remove(int(user_remove))
-                if user_remove in self.group_admin[group_id]:
-                    self.group_admin[group_id].remove(int(user_remove))
+        await self.fresh_group_info()
         await self.send_message_to_front(message)
 
     async def send_message_to_front(self, message_sent: Message):
