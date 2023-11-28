@@ -1,5 +1,5 @@
 import enum
-from enum import IntFlag
+from enum import IntFlag, auto
 from pydantic import BaseModel
 
 
@@ -99,6 +99,6 @@ class FriendType(enum.IntEnum):
 
 
 class MessageStatusType(IntFlag):
-    NORMAL = 0
-    RECALLED = 1
-    EDITED = 2
+    NORMAL = auto()
+    RECALLED = auto()
+    EDITED = auto()
