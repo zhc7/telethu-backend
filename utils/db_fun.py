@@ -449,6 +449,7 @@ def db_delete_message(message_id, user_id):
             raise KeyError("You can't delete a message that's not sent to a group that you're in!")
     if del_user not in message.deleted_users.all():
         message.deleted_users.add(del_user)
+        message.save()
     return
 
 @database_sync_to_async
@@ -470,4 +471,17 @@ def db_edit_message(message_id, user_id, new_content):
         raise KeyError("You can't edit a message sent by others!")
     message.content = new_content
     message.status = MessageStatusType.EDITED
-    return
+    message.save()
+    if message.t_type == 0:
+        # personal message
+        return message.receiver
+    elif message.t_type == 1:
+        # group message
+        group_id = message.receiver
+        group = GroupList.objects.filter(group_id=group_id).first()
+        if group is None:
+            raise KeyError("group not found")
+        group_list = [members.id for members in group.group_members.all()]
+        return group_list
+    else:
+        raise KeyError("message type not found")
