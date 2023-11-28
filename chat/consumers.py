@@ -24,6 +24,7 @@ from utils.db_fun import (
     db_query_fri_and_gro_id,
     db_recall_member_message,
     db_delete_message,
+    db_edit_message,
 )
 
 from utils.ack_manager import AckManager
@@ -336,15 +337,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def rcv_leave_group(self, message: Message):
         group_id = message.receiver
         user_id = self.user_id
-        if group_id not in self.group_list:
-            message.content = "You are not in this group"
-            await self.send_message_to_target(message, str(user_id))
+        try:
+            group_other_members = await db_reduce_person(group_id, user_id)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
             return
         message.sender = user_id
         message.t_type = TargetType.GROUP
         message.content = "user:id=" + str(user_id) + " leave group"
-        group_other_members = self.group_members[group_id]
-        await db_reduce_person(group_id, user_id)
         for member in group_other_members:
             await self.send_message_to_target(message, str(member))
         await self.send_message_to_target(message, str(user_id))
@@ -443,6 +444,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
         await self.send_message_to_target(message, str(self.user_id))
 
+    async def rcv_edit_message(self, message: Message):
+        new_content = message.content
+        user_id = self.user_id
+        message_id = message.receiver
+        try:
+            receiver = await db_edit_message(message_id, user_id, new_content)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
+            return
+        if type(receiver) == int:
+            await self.send_message_to_target(message, str(receiver))
+            await self.send_message_to_target(message, str(self.user_id))
+        elif type(receiver) == list:
+            for member in receiver:
+                await self.send_message_to_target(message, str(member))
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -497,6 +515,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.send_message_to_front,
             MessageType.FUNC_CALLBACK_MEMBER_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_DELETE_MESSAGE: self.send_message_to_front,
+            MessageType.FUNC_EDIT_MESSAGE: self.send_message_to_front,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 

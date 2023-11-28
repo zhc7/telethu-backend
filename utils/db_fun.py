@@ -369,10 +369,17 @@ def db_add_read_message(self_group_list, message_id, user_id):
 def db_reduce_person(group_id, person_id):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
-        return None
+        raise KeyError("group not exist")
+    if group.group_owner is None:
+        raise KeyError("group owner not exist,this group must be deleted")
+    if person_id not in group.group_members.all():
+        raise KeyError("person not in group")
+    if person_id == group.group_owner.id:
+        raise KeyError("owner can not be reduced")
     group.group_members.remove(person_id)
     group.save()
-    return group.group_id
+    group_list = [members.id for members in group.group_members.all()]
+    return group_list
 
 @database_sync_to_async
 def db_recall_message(message_id):
