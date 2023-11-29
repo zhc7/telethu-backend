@@ -203,34 +203,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content.members = [self.user_id] + message.content.members
         group_name = message.content.name
         group_members = message.content.members
-        group, user_list = await db_build_group(
+        group_list,group_id = await db_build_group(
             self.friend_list, self.user_id, group_name, group_members
         )
-        message.content.id = group.group_id  # set receiver to group id
-        message.content.avatar = group.group_avatar
-        message.content.members = user_list
-        for member in message.content.members:
+        message.content=group_id
+        for member in group_list:
             await self.send_message_to_target(message, str(member))
 
     async def rcv_add_group_member(self, message: Message):
-        if not isinstance(message.content.members, list):
+        if not isinstance(message.content, list):
+            message.content = "Wrong format"
+            await self.send_message_to_front(message)
             return None
-        if len(message.content.members) == 0 and not isinstance(
-            message.content.members[0], int
-        ):
+        if len(message.content) == 0 and not isinstance(message.content[0], int):
+            message.content = "Wrong format"
+            await self.send_message_to_front(message)
             return None
         group_id = message.receiver
-        group_members = message.content.members
-        group, user_list = await db_add_member(
-            self.user_id, self.friend_list, group_id, group_members
-        )
-        if group is None:
+        group_add_members = message.content
+        try :
+            add_list,group_list = await db_add_member(group_id, group_add_members, self.user_id)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
             return None
-        message.content.members = await db_from_id_to_meta(user_list)
-        message.content.id = group.group_id
-        message.content.name = group.group_name
-        message.content.avatar = group.group_avatar
-        for member in message.content.members:
+        message.content = add_list
+        for member in group_list:
             await self.send_message_to_target(message, str(member))
 
     async def rcv_apply_friend(self, message: Message):
