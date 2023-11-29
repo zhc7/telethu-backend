@@ -9,7 +9,7 @@ from utils.data import (
 )
 from utils.uid import globalIdMaker
 from utils.data import MessageStatusType
-
+from django.utils import timezone
 
 @database_sync_to_async
 def db_query_group_info(group_id_list) -> dict[int, GroupData]:
@@ -429,7 +429,24 @@ def db_recall_message(message_id, user_id):
         raise KeyError("message not exist")
     if recaller is None:
         raise KeyError("user not exist")
-
+    # A user can only delete a message that is sent by him/herself
+    if message.sender != user_id:
+        raise KeyError("You can't recall a message sent by others!")
+    # A user can only delete a message that is sent within 2 minutes.
+    message_time = timezone.datetime.fromtimestamp(message.time)
+    current_time = timezone.now()
+    time_difference = current_time - message_time
+    two_minutes = timezone.timedelta(minutes=2)
+    if time_difference > two_minutes:
+        raise KeyError("Can't recall a message that is sent over 2 minutes ago!")
+    # A message can only be recalled once.
+    if message.status == MessageStatusType.RECALLED:
+        raise KeyError("A message can only be recalled once!")
+    # All the possible exceptions should be handled above.
+    message.status = MessageStatusType.RECALLED
+    return
+    
+    
 @database_sync_to_async
 def db_delete_message(message_id, user_id):
     if message_id is None:
