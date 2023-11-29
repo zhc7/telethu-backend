@@ -122,34 +122,29 @@ def db_build_group(friend_list, user_id, group_name, group_members):
     id_list = []
     for member in group.group_members.all():
         id_list.append(member.id)
-    return id_list, group.group_id
+    return group, id_list
 
 
 @database_sync_to_async
-def db_add_member(group_id, add_member,self_user_id):
-    add_list = []
+def db_add_member(self_user_id, self_friend_list, group_id, add_member):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
-        raise KeyError("group not exist")
-    self_user = User.objects.filter(id=self_user_id).first()
-    if self_user is None:
-        raise KeyError("self user not exist")
-    if self_user not in group.group_members.all():
-        raise KeyError("you are not in group and cannot add member")
+        print("group not exist")
+        return None, None
+    # 判断自己是否在群里，不在就加不了人
+    user = User.objects.filter(id=self_user_id).first()
+    if user not in group.group_members.all():
+        print("user not in group")
+        return None, None
+    # 判断被加的是否是好友
     for member in add_member:
-        # now can add not your friend
-        user = User.objects.filter(id=member).first()
-        if user is None:
-            continue
-        if user in group.group_members.all():
-            continue
-        group.group_members.add(member)
-        group.save()
-        add_list.append(member)
-    group_list = []
+        if member in self_friend_list:
+            group.group_members.add(member)
+    group.save()
+    id_list = []
     for member in group.group_members.all():
-        group_list.append(member.id)
-    return add_list, group_list
+        id_list.append(member.id)
+    return group, id_list
 
 
 @database_sync_to_async
@@ -385,13 +380,6 @@ def db_reduce_person(group_id, person_id):
     group.save()
     group_list = [members.id for members in group.group_members.all()]
     return group_list
-
-@database_sync_to_async
-def db_recall_message(message_id):
-    message = MessageList.objects.get(message_id=message_id)
-    message.status = MessageStatusType.RECALLED
-    message.save()
-    return
 
 @database_sync_to_async
 def db_recall_member_message(message_id,group_id,user_id):
