@@ -413,9 +413,7 @@ def db_recall_member_message(message_id,group_id,user_id):
 @database_sync_to_async
 def db_recall_message(message_id, user_id):
     if message_id is None:
-        raise KeyError("message_id not found")
-    if user_id is None:
-        raise KeyError("user_id not found")
+        raise KeyError("message_id not found,you cannot recall this message")
     message = MessageList.objects.filter(message_id=message_id).first()
     recaller = User.objects.filter(id=user_id)
     if message is None:
@@ -444,8 +442,6 @@ def db_recall_message(message_id, user_id):
 def db_delete_message(message_id, user_id):
     if message_id is None:
         raise KeyError("message_id not found")
-    if user_id is None:
-        raise KeyError("user_id not found")
     message = MessageList.objects.filter(message_id=message_id).first()
     del_user = User.objects.filter(id=user_id)
     if message is None:

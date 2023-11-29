@@ -25,6 +25,7 @@ from utils.db_fun import (
     db_recall_member_message,
     db_delete_message,
     db_edit_message,
+    db_recall_message,
 )
 
 from utils.ack_manager import AckManager
@@ -188,6 +189,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_CALLBACK_MEMBER_MESSAGE: self.rcv_callback_member_message,
             MessageType.FUNC_DELETE_MESSAGE: self.rcv_delete_message,
             MessageType.FUNC_EDIT_MESSAGE: self.rcv_edit_message,
+            MessageType.FUNC_CALLBACK_SELF_MESSAGE: self.rcv_callback_self_message,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -459,6 +461,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             for member in receiver:
                 await self.send_message_to_target(message, str(member))
 
+    async def rcv_callback_self_message(self, message: Message):
+        message_id = message.content
+        user_id = self.user_id
+        try:
+            await db_recall_message(message_id, user_id)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
+            return
+        await self.send_message_to_target(message, str(self.user_id))
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -514,6 +527,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_CALLBACK_MEMBER_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_DELETE_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_EDIT_MESSAGE: self.send_message_to_front,
+            MessageType.FUNC_CALLBACK_SELF_MESSAGE: self.send_message_to_front,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
