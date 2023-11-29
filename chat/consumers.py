@@ -164,8 +164,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 routing_key="",
             )
             print("send to storage: ", message_json)
-
-        # step 4. handle message
+        # step 4. set t_type for function message
+        if message_received.m_type < MessageType.FUNCTION:
+            message_received.t_type = TargetType.OTHER
+        # step 5. handle message
         # to sync across same user's different devices
         Message.sender = self.user_id
         handler: Callable[[Message], Any] = {
