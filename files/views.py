@@ -90,7 +90,7 @@ def load(req: HttpRequest, hash_code: str):
                 file_path = "./files/file_storage/" + multimedia_md5
                 if not os.path.exists(file_path):
                     return request_failed(
-                        2, "the file is not in the server", status_code=405
+                        2, "the file is not in the server", status_code=404
                     )
                 else:
                     with open(file_path, "rb") as f:
@@ -112,7 +112,7 @@ def load(req: HttpRequest, hash_code: str):
                             response = HttpResponse(content, content_type="image/bmp")
                         else:
                             return request_failed(
-                                2, "the file type is not correct", status_code=405
+                                2, "the file type is not correct", status_code=404
                             )
                     elif m_type == 2:  # audio
                         response = HttpResponse(content, content_type="audio/mpeg")
@@ -124,10 +124,10 @@ def load(req: HttpRequest, hash_code: str):
                         )
                     else:
                         return request_failed(
-                            2, "the file type is not correct", status_code=405
+                            2, "the file type is not correct", status_code=404
                         )
                     return response
         else:
-            return request_failed(2, "the file hasn't claim", status_code=405)
+            return request_failed(2, "the file hasn't claim", status_code=404)
     else:
         return BAD_METHOD
