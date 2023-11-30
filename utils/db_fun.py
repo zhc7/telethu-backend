@@ -416,7 +416,7 @@ def db_recall_message(message_id, user_id):
     if message_id is None:
         raise KeyError("message_id not found,you cannot recall this message")
     message = MessageList.objects.filter(message_id=message_id).first()
-    recaller = User.objects.filter(id=user_id)
+    recaller = User.objects.filter(id=user_id).first()
     if message is None:
         raise KeyError("message not exist")
     if recaller is None:
@@ -448,10 +448,11 @@ def db_recall_message(message_id, user_id):
     
 @database_sync_to_async
 def db_delete_message(message_id, user_id):
+    print("You are deleting a message! ")
     if message_id is None:
         raise KeyError("message_id not found")
     message = MessageList.objects.filter(message_id=message_id).first()
-    del_user = User.objects.filter(id=user_id)
+    del_user = User.objects.filter(id=user_id).first()
     if message is None:
         raise KeyError("message not exist")
     if del_user is None:
@@ -463,13 +464,19 @@ def db_delete_message(message_id, user_id):
     else:
         # group message, receiver stands for group_id. We just need to determine whether this user is in the group.
         group = GroupList.objects.filter(group_id=message.receiver).first()
+        print("Group is: ", group)
         if group is None:
             raise KeyError("group not found")
         is_member = del_user in group.group_members.all()
+        print("Del_user: ", del_user)
+        print("Group members: ", group.group_members)
+        print("Is member: ", is_member)
         if not is_member:
+            print("Not a Member!")
             raise KeyError("You can't delete a message that's not sent to a group that you're in!")
-    if del_user not in message.deleted_users.all():
-        message.deleted_users.add(del_user)
+    if user_id not in message.deleted_users.all():
+        print("Deleted!")
+        message.deleted_users.add(user_id)
         message.save()
     return
 
@@ -482,7 +489,7 @@ def db_edit_message(message_id, user_id, new_content):
     if new_content is None:
         raise KeyError("new_content not found")
     message = MessageList.objects.filter(message_id=message_id).first()
-    editor = User.objects.filter(id=user_id)
+    editor = User.objects.filter(id=user_id).first()
     if message is None:
         raise KeyError("message not exist")
     if editor is None:
