@@ -440,7 +440,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_id = message.content
         user_id = self.user_id
         try:
-            message = await db_delete_message(message_id, user_id)
+            await db_delete_message(message_id, user_id)
         except KeyError as e:
             message.content = str(e)
             await self.send_message_to_front(message)
