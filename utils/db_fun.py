@@ -11,6 +11,7 @@ from utils.uid import globalIdMaker
 from utils.data import MessageStatusType
 from django.utils import timezone
 from datetime import timedelta
+import json
 
 @database_sync_to_async
 def db_query_group_info(group_id_list) -> dict[int, GroupData]:
@@ -495,9 +496,9 @@ def db_edit_message(message_id, user_id, new_content):
     if editor is None:
         raise KeyError("user not exist")
     # Only the sender can edit the message he sent.
-    if message.sender != editor:
+    if message.sender != user_id:
         raise KeyError("You can't edit a message sent by others!")
-    message.content = new_content
+    message.content = json.dumps(new_content)
     message.status = MessageStatusType.EDITED
     message.save()
     if message.t_type == 0:
