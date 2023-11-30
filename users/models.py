@@ -66,7 +66,6 @@ class MessageList(models.Model):
     who_read = models.ManyToManyField(User, related_name="who_read")
     deleted_users = models.ManyToManyField(User, related_name="deleted_users")
     status = models.IntegerField(
-        choices=[(status.value, status.name) for status in MessageStatusType],
         default=MessageStatusType.NORMAL,
     )
 

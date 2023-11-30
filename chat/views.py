@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
 from utils.data import MessageStatusType
-from users.models import MessageList
+from users.models import MessageList, GroupList, User
 from utils.data import Message
 from utils.session import SessionData
 from utils.utils_request import request_failed, request_success, BAD_METHOD
@@ -70,5 +70,87 @@ def chat_history(request):
     return JsonResponse(messages_list, safe=False)
     # TODO: 利用上述字段获取数据库中数据
     
-def filter_history():
-    pass
+    
+@csrf_exempt    
+def filter_history(request):
+    print("You are filtering history! ")
+    from_value = int(request.GET.get("from", 0)) # Get all the message from this time 
+    to_value = int(request.GET.get("to", -1)) # Get all the message before this time, default to be -1 to show no limits
+    m_type = int(request.GET.get("m_type", -1)) # m_type
+    sender = int(request.GET.get("sender", -1)) # The id of sender
+    content = str(request.GET.get("content", "")) # The content of the message, user __icontain
+    num_value = int(request.GET.get("num", 100)) # Number of messages we ought to get, default to be -1 to show no limits
+    user_id = int(request.user_id)
+    # First, find all the message within from_value and to value
+    messages=[]
+    if content != "":
+        print("content! ")
+        messages = MessageList.objects.filter(
+            ~Q(deleted_users__in=[user_id]),
+            ~Q(status=MessageStatusType.RECALLED),
+            content__icontains=content,
+            time__gt=from_value
+        ).order_by("-time")[:num_value]
+        print("messages: ", messages)
+    else:
+        messages = MessageList.objects.filter(
+            ~Q(deleted_users__in=[user_id]),
+            ~Q(status=MessageStatusType.RECALLED),
+            time__gt=from_value
+        ).order_by("-time")[:num_value]
+        print("messages: ", messages)
+    
+    # You may get some message that you shouldn't receive
+    f_messages = []
+    user = User.objects.filter(id=user_id).first()
+    
+    # Preprocessing
+    for message in messages:
+        if message.m_type < 6:
+            if message.t_type == 0:
+                if message.sender == user_id or message.receiver == user_id:
+                    f_messages.append(message)
+            elif message.t_type == 1:
+                group = GroupList.objects.filter(group_id=message.receiver).first()
+                if group is not None:
+                    is_member = user in group.group_members.all()
+                    if is_member:
+                        f_messages.append(message)
+                
+    messages = f_messages
+    
+    # If to_value != -1, then filter the messages to get all that's sent earlier than to_value
+    if to_value != -1:
+        f_messages = [message for message in messages if message.time < to_value]
+        messages = f_messages
+    
+    # if m_type != -1, then filter all the messages with m_type
+    if m_type != -1:
+        f_messages = [message for message in messages if message.m_type == m_type]
+        messages = f_messages
+        
+    # if sender != -1, then filter all the message sent by sender
+    if sender != -1:
+        f_messages = [message for message in messages if message.sender == sender]
+        messages = f_messages
+        
+    messages_list = []
+    for msg in messages:
+        print("msg.content: ", msg.content)
+        a = Message(
+            message_id=msg.message_id,
+            m_type=msg.m_type,
+            t_type=msg.t_type,
+            time=msg.time,
+            content=json.loads(msg.content),
+            sender=msg.sender,
+            receiver=msg.receiver,
+            info=msg.info,
+        )
+        if msg.status == MessageStatusType.RECALLED:
+            a.content = "This message has been recalled! "
+        messages_list.append(a.model_dump())
+    messages_list.reverse()
+    
+    print("messages_list: ", messages_list)
+    return JsonResponse(messages_list, safe=False)
