@@ -78,6 +78,9 @@ class Message(BaseModel):
     info: str | list | None = (
         None  # for message referencing, forwarding and appending info
     )
+    who_read: bool | list | None = (
+        None  # list for group chat, bool for personal chat
+    )
 
 
 class Ack(BaseModel):
