@@ -506,3 +506,12 @@ def db_edit_message(message_id, user_id, new_content):
         return group_list
     else:
         raise KeyError("message type not found")
+
+@database_sync_to_async
+def db_edit_profile(user_id, new_profile):
+    user = User.objects.filter(id=user_id).first()
+    if user is None:
+        raise KeyError("user not found")
+    user.profile = new_profile
+    user.save()
+    return

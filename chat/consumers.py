@@ -26,6 +26,7 @@ from utils.db_fun import (
     db_delete_message,
     db_edit_message,
     db_recall_message,
+    db_edit_profile,
 )
 
 from utils.ack_manager import AckManager
@@ -192,6 +193,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_DELETE_MESSAGE: self.rcv_delete_message,
             MessageType.FUNC_EDIT_MESSAGE: self.rcv_edit_message,
             MessageType.FUNC_CALLBACK_SELF_MESSAGE: self.rcv_callback_self_message,
+            MessageType.FUNC_EDIT_PROFILE: self.rcv_edit_profile,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -346,7 +348,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_front(message)
             return
         message.sender = user_id
-        message.t_type = TargetType.GROUP
         message.content = "user:id=" + str(user_id) + " leave group"
         for member in group_other_members:
             await self.send_message_to_target(message, str(member))
@@ -474,6 +475,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
         await self.send_message_to_target(message, str(self.user_id))
 
+    async def rcv_edit_profile(self, message: Message):
+        message.sender = self.user_id
+        message.receiver = self.user_id
+        profile_get = json.loads(message.content)
+        try:
+            await db_edit_profile(self.user_id, profile_get)
+        except KeyError as e:
+            message.content = str(e)
+            await self.send_message_to_front(message)
+            return
+        await self.send_message_to_target(message, str(self.user_id))
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -530,6 +543,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_DELETE_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_EDIT_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_CALLBACK_SELF_MESSAGE: self.send_message_to_front,
+            MessageType.FUNC_EDIT_PROFILE: self.send_message_to_front,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
