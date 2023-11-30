@@ -442,6 +442,7 @@ def db_recall_message(message_id, user_id):
     # All the possible exceptions should be handled above.
     print("Recall the message!")
     message.status = MessageStatusType.RECALLED
+    message.save()
     return
     
     
