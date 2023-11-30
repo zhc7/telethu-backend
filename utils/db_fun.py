@@ -374,7 +374,8 @@ def db_reduce_person(group_id, person_id):
         raise KeyError("group not exist")
     if group.group_owner is None:
         raise KeyError("group owner not exist,this group must be deleted")
-    if person_id not in group.group_members.all():
+    person = User.objects.filter(id=person_id).first()
+    if person not in group.group_members.all():
         raise KeyError("person not in group")
     if person_id == group.group_owner.id:
         raise KeyError("owner can not be reduced")
