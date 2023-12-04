@@ -30,7 +30,7 @@ def authentication(req: HttpRequest):
         body, "userEmail", "string", err_msg="Missing or error type of [email]"
     )
     if not User.objects.filter(userEmail=user_email, is_deleted=False).exists():
-        raise KeyError("User not exists", 404)
+        raise KeyError("User not exists", 401)
     user = User.objects.get(userEmail=user_email, is_deleted=False)
     return user, password
 
@@ -44,15 +44,15 @@ def login(req: HttpRequest):
         return request_failed(2, error_message, status_code=status_code)
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
-        return request_failed(2, "Wrong password", status_code=404)
+        return request_failed(2, "Wrong password", status_code=403)
     user_id = user.id
     token = generate_jwt_token(user_id)
     session = SessionData(req)
     if session.user_id is not None:
         return request_failed(
             2,
-            f"Login failed because user {session.user_id} has login",
-            status_code=404,
+            "Login failed because some user has login",
+            status_code=403,
         )
     session.user_id = user_id
     response_data = {
@@ -132,7 +132,7 @@ def get_user_info(req: HttpRequest, user_id: int):
                 name=group.group_name,
                 avatar=group.group_avatar,
                 members=[member.id for member in group.group_members.all()],
-                owner= None if group.group_owner is None else group.group_owner.id,
+                owner=None if group.group_owner is None else group.group_owner.id,
                 admin=[admin.id for admin in group.group_admin.all()],
             ).model_dump()
     else:

@@ -6,7 +6,7 @@ MAX_CHAR_LENGTH = 255
 
 # Here err_code == -2 denotes "Error in request body"
 # And err_code == -1 denotes "Error in request URL parsing"
-def require(body, key, types="string", err_msg=None, err_code=401):
+def require(body, key, types="string", err_msg=None, err_code=400):
     if key not in body.keys():
         raise KeyError(
             err_msg
