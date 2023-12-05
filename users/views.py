@@ -21,7 +21,7 @@ from utils.utils_require import check_require, require
 def authentication(req: HttpRequest):
     # 检查请求方法
     if req.method != "POST":
-        raise KeyError("Bad method", 400)
+        raise KeyError("Bad method", 405)
     body = json.loads(req.body)
     password = require(
         body, "password", "string", err_msg="Missing or error type of [password]"
@@ -88,17 +88,21 @@ def register(req: HttpRequest):
     if req.method != "POST":
         return BAD_METHOD
     body = json.loads(req.body)
-    username = require(
-        body, "userName", "string", err_msg="Missing or error type of [userName]"
-    )
-    password = require(
-        body, "password", "string", err_msg="Missing or error type of [password]"
-    )
-    user_email = require(
-        body, "userEmail", "string", err_msg="Missing or error type of [email]"
-    )
+    try:
+        username = require(
+            body, "userName", "string", err_msg="Missing or error type of [userName]"
+        )
+        password = require(
+            body, "password", "string", err_msg="Missing or error type of [password]"
+        )
+        user_email = require(
+            body, "userEmail", "string", err_msg="Missing or error type of [email]"
+        )
+    except KeyError as e:
+        error_message, status_code = str(e.args[0]), int(e.args[1])
+        return request_failed(2, error_message, status_code=status_code)
     if User.objects.filter(userEmail=user_email, is_deleted=False).exists():
-        return request_failed(2, "userEmail already exists", status_code=404)
+        return request_failed(2, "userEmail already exists", status_code=403)
     if not check_require(username, "username"):
         return request_failed(2, "Invalid username", status_code=422)
     if not check_require(password, "password"):

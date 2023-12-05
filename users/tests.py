@@ -58,7 +58,6 @@ class UserTestCase(TestCase):
             {"userEmail": self.user1.userEmail},
             content_type="application/json",
         )
-        print(response.json())
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["info"], "Missing or error type of [password]")
 
@@ -77,7 +76,7 @@ class UserTestCase(TestCase):
             {"userEmail": self.user1.userEmail, "password": "test1"},
             content_type="application/json",
         )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 405)
         self.assertEqual(response.json()["info"], "Bad method")
 
     def test_login_repeat(self):
@@ -95,3 +94,101 @@ class UserTestCase(TestCase):
         self.assertEqual(
             response.json()["info"], "Login failed because some user has login"
         )
+
+    def test_register_success(self):
+        response = self.client.post(
+            reverse("register"),
+            {
+                "userEmail": "test4@qq.com",
+                "userName": "test4",
+                "password": "test4",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+
+    def test_register_without_email(self):
+        response = self.client.post(
+            reverse("register"),
+            {
+                "userName": "test4",
+                "password": "test4",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["info"], "Missing or error type of [email]")
+
+    def test_register_without_username(self):
+        response = self.client.post(
+            reverse("register"),
+            {
+                "userEmail": "test4@qq.com",
+                "password": "test4",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["info"], "Missing or error type of [userName]")
+
+    def test_register_without_password(self):
+        response = self.client.post(
+            reverse("register"),
+            {
+                "userEmail": "test4@qq.com",
+                "userName": "test4",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["info"], "Missing or error type of [password]")
+
+    def test_register_wrong_method(self):
+        response = self.client.get(
+            reverse("register"),
+            {
+                "userEmail": "test4@qq.com",
+                "userName": "test4",
+                "password": "test4",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(response.json()["info"], "Bad method")
+
+    def test_register_repeat(self):
+        self.client.post(
+            reverse("register"),
+            {
+                "userEmail": "test1@qq.com",
+                "userName": "test1",
+                "password": "test1",
+            },
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("register"),
+            {
+                "userEmail": "test1@qq.com",
+                "userName": "test1",
+                "password": "test1",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["info"], "userEmail already exists")
+
+    def test_logout_success(self):
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("logout"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
