@@ -6,6 +6,7 @@ class IdMaker:
     def __init__(self):
         self.lock = Lock()
         self.id = None
+        self.initialized = False
 
     def late_init(self):
         # 查找当前数据库中最大的 id，包括group_id和user_id
@@ -18,8 +19,11 @@ class IdMaker:
         if max_group_id is None:
             max_group_id = 0
         self.id = max(max_id, max_group_id)
+        self.initialized = True
 
     def get_id(self):
+        if not self.initialized:
+            self.late_init()
         with self.lock:
             self.id += 1
         return self.id

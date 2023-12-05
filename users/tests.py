@@ -1,3 +1,5 @@
+import hashlib
+
 from django.test import TestCase
 from django.urls import reverse
 from users.models import User, Friendship, MessageList, GroupList
@@ -188,6 +190,170 @@ class UserTestCase(TestCase):
         response = self.client.post(
             reverse("logout"),
             {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+
+    def test_get_user_info_success(self):
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        response = self.client.get(
+            reverse("get_user_info", kwargs={"user_id": self.user1.id}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+        self.assertEqual(response.json()["name"], "test1")
+        self.assertEqual(response.json()["email"], "test1@qq.com")
+        self.assertEqual(response.json()["avatar"], "22933c1646d1f0042e39d7471e42f33b")
+
+    def test_get_friend_list_success(self):
+        Friendship.objects.create(user1=self.user1, user2=self.user2, state=1)
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        response = self.client.get(
+            reverse("get_friend_list"),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+        self.assertEqual(response.json()["friends"][0]["email"], "test2@qq.com")
+        self.assertEqual(response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b")
+
+
+    def test_get_apply_list(self):
+        Friendship.objects.create(user1=self.user1, user2=self.user2, state=0)
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user2.userEmail, "password": "test2"},
+            content_type="application/json",
+        )
+        response = self.client.get(
+            reverse("get_apply_list"),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+        self.assertEqual(response.json()["friends"][0]["name"], "test1")
+        self.assertEqual(response.json()["friends"][0]["email"], "test1@qq.com")
+        self.assertEqual(response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b")
+
+    def test_get_you_apply_list(self):
+        Friendship.objects.create(user1=self.user1, user2=self.user2, state=0)
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        response = self.client.get(
+            reverse("get_you_apply_list"),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+        self.assertEqual(response.json()["friends"][0]["name"], "test2")
+        self.assertEqual(response.json()["friends"][0]["email"], "test2@qq.com")
+        self.assertEqual(response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b")
+
+
+    def test_verify_success(self):
+        # TODO: zry来写这个测试
+        pass
+
+    def test_sendemail_success(self):
+        # TODO: zry来写这个测试
+        pass
+
+    def test_avatar_success(self):
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        response = self.client.get(
+            reverse("avatar", kwargs={"hash_code": "22933c1646d1f0042e39d7471e42f33b"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        picture = response.content
+        md5_hash = hashlib.md5()
+        md5_hash.update(picture)
+        real_md5 = md5_hash.hexdigest()
+        self.assertEqual(real_md5, "22933c1646d1f0042e39d7471e42f33b")
+        # 再传上去
+        response = self.client.post(
+            reverse("avatar"),
+            picture,
+            content_type="png",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+
+    def test_profile_success(self):
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("profile"),
+            {"userEmail": "test1@qq.com", "password": "test1"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+
+        response = self.client.get(
+            reverse("profile"),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+        self.assertEqual(response.json()["userEmail"], "test1@qq.com")
+        self.assertEqual(response.json()["password"], "test1")
+
+    def test_user_search_success(self):
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("user_search"),
+            {"info": "test2", "type": "1"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+        self.assertEqual(response.json()["users"][0]["name"], "test2")
+        self.assertEqual(response.json()["users"][0]["email"], "test2@qq.com")
+        response = self.client.post(
+            reverse("user_search"),
+            {"info": "1", "type": "0"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+        self.assertEqual(response.json()["users"][0]["name"], "test1")
+        self.assertEqual(response.json()["users"][0]["email"], "test1@qq.com")
+
+    def test_delete_user_success(self):
+        response = self.client.post(
+            reverse("login"),
+            {"userEmail": self.user2.userEmail, "password": "test2"},
+            content_type="application/json",
+        )
+        token = response.json()["token"]
+        response = self.client.delete(
+            reverse("delete_user"),
+            {"token": token},
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
