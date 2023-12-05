@@ -10,15 +10,6 @@ from utils.session import SessionData
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from django.views.decorators.csrf import csrf_exempt
 
-def index(request):
-    print("You are in index")
-    return render(request, "chat/index.html")
-
-
-def room(request, room_name):
-    return render(request, "chat/room.html", {"room_name": room_name})
-
-
 def chat_history(request):
     print("You're getting chat history!")
     # Parameters

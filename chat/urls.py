@@ -5,8 +5,6 @@ from . import views
 
 
 urlpatterns = [
-    path("", views.index, name="index"),
-    path("<str:room_name>/", views.room, name="room"),
-    re_path("history", views.chat_history),
-    path("filter", views.filter_history)
+    re_path("history", views.chat_history, name="chat_history"),
+    path("filter", views.filter_history, name="filter_history"),
 ]
