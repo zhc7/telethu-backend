@@ -10,7 +10,7 @@ from utils.utils_request import request_failed, request_success, BAD_METHOD
 
 
 def check_type(m_type, detected_mime):
-    if m_type == 1:  # image
+    if m_type == 0:  # image
         if (
             not "png" in detected_mime.lower()
             and not "jpeg" in detected_mime.lower()
@@ -19,13 +19,13 @@ def check_type(m_type, detected_mime):
             and not "bmp" in detected_mime.lower()
         ):
             raise ValueError("the file type is not correct")
-    elif m_type == 2:  # audio
+    elif m_type == 1:  # audio
         if "mpeg" not in detected_mime.lower():
             raise ValueError("the file type is not correct")
-    elif m_type == 3:  # video
+    elif m_type == 2:  # video
         if "mp4" not in detected_mime.lower():
             raise ValueError("the file type is not correct")
-    elif m_type == 4:  # file
+    elif m_type == 3:  # file
         pass
     else:
         raise ValueError("the file type is not correct")
@@ -37,19 +37,15 @@ def load(req: HttpRequest, hash_code: str):
     # check the method
     if req.method == "POST":
         multimedia_content = req.body
-        multimedia_md5 = hash_code
         # calculate the md5 of the content
         md5_hash = hashlib.md5()
         md5_hash.update(multimedia_content)
         real_md5 = md5_hash.hexdigest()
-        if real_md5 != multimedia_md5:
-            return request_failed(2, "the md5 is not correct", status_code=405)
-        if Multimedia.objects.filter(multimedia_id=real_md5).exists():
-            # if the file exists,do nothing,else download the file
-            if not os.path.exists("./files/file_storage"):
-                os.mkdir("./files/file_storage")
-            file_path = "./files/file_storage/" + real_md5
-            if not os.path.exists(file_path):
+        if not os.path.exists("./files/file_storage"):
+            os.mkdir("./files/file_storage")
+        file_path = "./files/file_storage/" + real_md5
+        if not os.path.exists(file_path):
+            if Multimedia.objects.filter(multimedia_id=real_md5).exists():
                 multimedia = Multimedia.objects.get(multimedia_id=multimedia_md5)
                 m_type = multimedia.multimedia_type
                 mime = magic.Magic()
@@ -58,16 +54,9 @@ def load(req: HttpRequest, hash_code: str):
                     check_type(m_type, detected_mime)
                 except ValueError as e:
                     return request_failed(2, str(e), status_code=405)
-                with open(file_path, "wb") as f:
-                    f.write(multimedia_content)
-            return request_success()
-        else:
-            # if the file does not exist.
-            return request_failed(
-                2,
-                "you can not post the file without claim in websocket",
-                status_code=404,
-            )
+            with open(file_path, "wb") as f:
+                f.write(multimedia_content)
+        return request_success()
     elif req.method == "GET":
         user_id = req.user_id  # get the user id
         multimedia_md5 = hash_code
@@ -96,7 +85,7 @@ def load(req: HttpRequest, hash_code: str):
                     with open(file_path, "rb") as f:
                         multimedia_content = f.read()
                         content = multimedia_content
-                    if m_type == 1:  # image
+                    if m_type == 0:  # image
                         # check the type of the file
                         mime = magic.Magic()
                         detected_mime = mime.from_buffer(multimedia_content)
@@ -114,11 +103,15 @@ def load(req: HttpRequest, hash_code: str):
                             return request_failed(
                                 2, "the file type is not correct", status_code=404
                             )
-                    elif m_type == 2:  # audio
+                    elif m_type == 1:  # audio
                         response = HttpResponse(content, content_type="audio/mpeg")
-                    elif m_type == 3:  # video
+                    elif m_type == 2:  # video
                         response = HttpResponse(content, content_type="video/mp4")
-                    elif m_type == 4:  # file
+                    elif m_type == 3:  # file
+                        response = HttpResponse(
+                            content, content_type="application/octet-stream"
+                        )
+                    elif m_type == 4:  # sticker
                         response = HttpResponse(
                             content, content_type="application/octet-stream"
                         )

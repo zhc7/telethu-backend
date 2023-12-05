@@ -244,6 +244,7 @@ def db_friendship_change(user_id, friend_id, state):
 
 @database_sync_to_async
 def db_create_multimedia(self_user_id, m_type, md5, t_type, user_or_group):
+    m_type = int(m_type) - 1
     if t_type == TargetType.FRIEND:  # IF FRIEND
         # if exist
         if Multimedia.objects.filter(multimedia_id=md5).exists():

@@ -2,7 +2,7 @@ import hashlib
 
 from django.test import TestCase
 from django.urls import reverse
-from users.models import User, Friendship, MessageList, GroupList
+from users.models import User, Friendship
 from utils.utils_jwt import hash_string_with_sha256
 
 
@@ -225,8 +225,9 @@ class UserTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["info"], "Succeed")
         self.assertEqual(response.json()["friends"][0]["email"], "test2@qq.com")
-        self.assertEqual(response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b")
-
+        self.assertEqual(
+            response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b"
+        )
 
     def test_get_apply_list(self):
         Friendship.objects.create(user1=self.user1, user2=self.user2, state=0)
@@ -243,7 +244,9 @@ class UserTestCase(TestCase):
         self.assertEqual(response.json()["info"], "Succeed")
         self.assertEqual(response.json()["friends"][0]["name"], "test1")
         self.assertEqual(response.json()["friends"][0]["email"], "test1@qq.com")
-        self.assertEqual(response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b")
+        self.assertEqual(
+            response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b"
+        )
 
     def test_get_you_apply_list(self):
         Friendship.objects.create(user1=self.user1, user2=self.user2, state=0)
@@ -260,8 +263,9 @@ class UserTestCase(TestCase):
         self.assertEqual(response.json()["info"], "Succeed")
         self.assertEqual(response.json()["friends"][0]["name"], "test2")
         self.assertEqual(response.json()["friends"][0]["email"], "test2@qq.com")
-        self.assertEqual(response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b")
-
+        self.assertEqual(
+            response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b"
+        )
 
     def test_verify_success(self):
         # TODO: zry来写这个测试

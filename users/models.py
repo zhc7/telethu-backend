@@ -86,6 +86,6 @@ class GroupList(models.Model):
     # # 群管理员
     group_admin = models.ManyToManyField(User, related_name="group_admin")
     # 置顶消息
-    group_top_message = models.ManyToManyField(MessageList, related_name="group_top_message")
-
-
+    group_top_message = models.ManyToManyField(
+        MessageList, related_name="group_top_message"
+    )
