@@ -4,7 +4,7 @@ import os
 
 import magic
 from django.core.signing import loads
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
@@ -301,7 +301,7 @@ def profile(req: HttpRequest):
         user = User.objects.get(id=user_id)
         user_profile = user.profile
         response_data = user_profile
-        return request_success(response_data)
+        return JsonResponse(response_data)
 
 
 @csrf_exempt
