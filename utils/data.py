@@ -43,6 +43,7 @@ class TargetType(enum.IntEnum):
     FRIEND = 0
     GROUP = 1
     OTHER = 2
+    ERROR = 3
 
 
 class ContactsData(BaseModel):

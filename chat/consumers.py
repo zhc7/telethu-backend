@@ -197,10 +197,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def rcv_create_group(self, message: Message):
         if not isinstance(message.content.members, list):
+            message.content = "Wrong format"
+            message.t_type = TargetType.ERROR
+            await self.send_message_to_front(message)
             return None
         if len(message.content.members) == 0 and not isinstance(
             message.content.members[0], int
         ):
+            message.content = "Wrong format"
+            message.t_type = TargetType.ERROR
+            await self.send_message_to_front(message)
             return None
         # 建群
         if self.user_id not in message.content.members:
@@ -217,10 +223,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def rcv_add_group_member(self, message: Message):
         if not isinstance(message.content, list):
             message.content = "Wrong format"
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return None
         if len(message.content) == 0 and not isinstance(message.content[0], int):
             message.content = "Wrong format"
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return None
         group_id = message.receiver
@@ -229,6 +237,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             add_list,group_list = await db_add_member(group_id, group_add_members, self.user_id)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return None
         message.content = add_list
@@ -323,18 +332,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def rcv_read_message(self, message: Message):
         message_id = int(message.content)
-        message_sender, message_receiver, message_t_type = await db_add_read_message(
-            self.group_list, message_id, self.user_id
-        )
-        if isinstance(message_sender, int):
-            message.receiver = message_receiver
-            message.t_type = message_t_type
-            message.sender = self.user_id
-            await self.send_message_to_target(message, str(self.user_id))
-            await self.send_message_to_target(message, str(message_sender))
-        else:
-            message.content = message_sender
-            await self.send_message_to_target(message, str(self.user_id))
+        try:
+            message_sender, message_receiver, message_t_type = await db_add_read_message(
+                self.group_list, message_id, self.user_id
+            )
+        except KeyError as e:
+            message.content = str(e)
+            message.t_type = TargetType.ERROR
+            await self.send_message_to_front(message)
+            return
+        message.receiver = message_receiver
+        message.t_type = message_t_type
+        message.sender = self.user_id
+        await self.send_message_to_target(message, str(self.user_id))
+        await self.send_message_to_target(message, str(message_sender))
 
     async def rcv_leave_group(self, message: Message):
         group_id = message.receiver
@@ -343,6 +354,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             group_other_members = await db_reduce_person(group_id, user_id)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         message.sender = user_id
@@ -357,20 +369,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_id = message.content
         if group_old_owner == group_new_owner:
             message.content = "You are already the owner"
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         if group_id not in self.group_list:
             message.content = "You are not in this group"
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         if group_new_owner not in self.group_members[group_id]:
             message.content = "This user is not in this group"
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         try:
             await db_change_group_owner(group_id, group_old_owner, group_new_owner)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         for member in self.group_members[group_id]:
@@ -387,6 +403,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await db_add_or_remove_admin(group_id, group_admin, self.user_id, if_add)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         for member in self.group_members[group_id]:
@@ -399,6 +416,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await db_group_remove_member(group_id, group_member, self.user_id)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         self.group_members[group_id].remove(group_member)
@@ -417,6 +435,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await db_add_or_del_top_message(group_id, message_id, self.user_id, if_add)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         for member in self.group_members[group_id]:
@@ -429,6 +448,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message = await db_recall_member_message(group_id, message_id)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         for member in self.group_members[group_id]:
@@ -441,6 +461,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await db_delete_message(message_id, user_id)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         await self.send_message_to_target(message, str(self.user_id))
@@ -453,6 +474,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             receiver = await db_edit_message(message_id, user_id, new_content)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         if type(receiver) == int:
@@ -469,6 +491,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await db_recall_message(message_id, user_id)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         await self.send_message_to_target(message, str(self.user_id))
@@ -481,6 +504,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await db_edit_profile(self.user_id, profile_get)
         except KeyError as e:
             message.content = str(e)
+            message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
         await self.send_message_to_target(message, str(self.user_id))

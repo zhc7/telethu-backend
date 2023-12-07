@@ -358,10 +358,9 @@ def db_add_or_del_top_message(group_id, message_id, user_id, if_add):
 def db_add_read_message(self_group_list, message_id, user_id):
     message = MessageList.objects.filter(message_id=message_id).first()
     if message is None:
-        return "no such message", None, None
-    print(message.receiver, user_id, self_group_list)
+        raise KeyError("message not exist")
     if message.receiver != user_id and message.receiver not in self_group_list:
-        return "you cannot read this message", None, None
+        raise KeyError("you cannot read this message")
     else:
         message.who_read.add(user_id)
         message.save()
