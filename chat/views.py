@@ -145,3 +145,27 @@ def filter_history(request):
     
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
+
+
+def message(request, message_id):
+    if request.method != "GET":
+        return BAD_METHOD
+    if message_id is None:
+        return request_failed(code=403,info="Message id is not provided! ")
+    message = MessageList.objects.filter(message_id=message_id).first()
+    if message is None:
+        return request_failed(code=403,info="Message not found! ")
+    message_response = Message(
+        message_id=message.message_id,
+        m_type=message.m_type,
+        t_type=message.t_type,
+        time=message.time,
+        content=message.content,
+        sender=message.sender,
+        receiver=message.receiver,
+        info=message.info,
+    )
+    return request_success(message_response.model_dump())
+
+
+

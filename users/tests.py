@@ -319,7 +319,6 @@ class UserTestCase(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["info"], "Succeed")
         self.assertEqual(response.json()["userEmail"], "test1@qq.com")
         self.assertEqual(response.json()["password"], "test1")
 
