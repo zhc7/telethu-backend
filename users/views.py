@@ -362,3 +362,18 @@ def delete_user(req: HttpRequest):
         user.is_deleted = True
         user.save()
         return request_success()
+
+
+@csrf_exempt
+def block_user_list(req: HttpRequest):
+    if req.method != "GET":
+        return BAD_METHOD
+    user = User.objects.get(id=req.user_id)
+    block_list = []
+    for friendship in user.user1_friendships.all():
+        if friendship.state == 2:
+            block_list.append(friendship.user2.id)
+    response = {
+        "block_list": block_list
+    }
+    return JsonResponse(response)

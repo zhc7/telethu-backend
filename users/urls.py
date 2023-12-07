@@ -16,4 +16,5 @@ urlpatterns = [
     path("profile", views.profile, name="profile"),
     path("user_search", views.user_search, name="user_search"),
     path("delete_user", views.delete_user, name="delete_user"),
+    path("block_user_list", views.block_user_list, name="block_user_list"),
 ]
