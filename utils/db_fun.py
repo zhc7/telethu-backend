@@ -528,3 +528,20 @@ def db_edit_profile(user_id, new_profile):
     user.profile = new_profile
     user.save()
     return
+
+@database_sync_to_async
+def db_delete_group(group_id, user_id):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group not found")
+    if group.group_owner is None:
+        raise KeyError("group owner not found")
+    if group.group_owner.id != user_id:
+        raise KeyError("you are not the owner")
+    group_member = []
+    for member in group.group_members.all():
+        group_member.append(member.id)
+    for message in group.group_top_message.all():
+        message.delete()
+    group.delete()
+    return group_member

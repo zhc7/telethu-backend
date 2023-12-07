@@ -38,6 +38,7 @@ class MessageType(enum.IntEnum):
     FUNC_DELETE_MESSAGE = 27
     FUNC_EDIT_MESSAGE = 28
     FUNC_EDIT_PROFILE = 29
+    FUNC_DELETE_GROUP = 30
 
 
 class TargetType(enum.IntEnum):

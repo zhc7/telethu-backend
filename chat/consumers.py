@@ -27,6 +27,7 @@ from utils.db_fun import (
     db_edit_message,
     db_recall_message,
     db_edit_profile,
+    db_delete_group,
 )
 
 from utils.ack_manager import AckManager
@@ -192,6 +193,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_EDIT_MESSAGE: self.rcv_edit_message,
             MessageType.FUNC_RECALL_SELF_MESSAGE: self.rcv_callback_self_message,
             MessageType.FUNC_EDIT_PROFILE: self.rcv_edit_profile,
+            MessageType.FUNC_DELETE_GROUP: self.rcv_delete_group,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -509,6 +511,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
         await self.send_message_to_target(message, str(self.user_id))
 
+    async def rcv_delete_group(self, message: Message):
+        group_id = message.content
+        try:
+            group_member = await db_delete_group(group_id, self.user_id)
+        except KeyError as e:
+            message.content = str(e)
+            message.t_type = TargetType.ERROR
+            await self.send_message_to_front(message)
+            return
+        message.sender = self.user_id
+        for member in group_member:
+            await self.send_message_to_target(message, str(member))
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -566,6 +580,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_EDIT_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_RECALL_SELF_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_EDIT_PROFILE: self.send_message_to_front,
+            MessageType.FUNC_DELETE_GROUP: self.cb_delete_group,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
@@ -596,6 +611,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send_message_to_front(message)
 
     async def cb_group_remove_member(self, message: Message):
+        await self.fresh_group_info()
+        await self.send_message_to_front(message)
+
+    async def cb_delete_group(self, message: Message):
         await self.fresh_group_info()
         await self.send_message_to_front(message)
 
