@@ -124,7 +124,7 @@ def db_build_group(friend_list, user_id, group_name, group_members):
     id_list = []
     for member in group.group_members.all():
         id_list.append(member.id)
-    return group, id_list
+    return id_list,group.group_id
 
 
 @database_sync_to_async
