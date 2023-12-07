@@ -187,10 +187,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.rcv_remove_group_member,
             MessageType.FUNC_MESSAGE_ADD_BROADCAST: self.rcv_add_or_del_top_message,
             MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.rcv_add_or_del_top_message,
-            MessageType.FUNC_CALLBACK_MEMBER_MESSAGE: self.rcv_callback_member_message,
+            MessageType.FUNC_RECALL_MEMBER_MESSAGE: self.rcv_callback_member_message,
             MessageType.FUNC_DELETE_MESSAGE: self.rcv_delete_message,
             MessageType.FUNC_EDIT_MESSAGE: self.rcv_edit_message,
-            MessageType.FUNC_CALLBACK_SELF_MESSAGE: self.rcv_callback_self_message,
+            MessageType.FUNC_RECALL_SELF_MESSAGE: self.rcv_callback_self_message,
             MessageType.FUNC_EDIT_PROFILE: self.rcv_edit_profile,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
@@ -561,10 +561,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_group_remove_member,
             MessageType.FUNC_MESSAGE_ADD_BROADCAST: self.send_message_to_front,
             MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.send_message_to_front,
-            MessageType.FUNC_CALLBACK_MEMBER_MESSAGE: self.send_message_to_front,
+            MessageType.FUNC_RECALL_MEMBER_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_DELETE_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_EDIT_MESSAGE: self.send_message_to_front,
-            MessageType.FUNC_CALLBACK_SELF_MESSAGE: self.send_message_to_front,
+            MessageType.FUNC_RECALL_SELF_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_EDIT_PROFILE: self.send_message_to_front,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
