@@ -50,6 +50,10 @@ def db_query_friends(user_id):
                 friend_id = friend.user1.id
             if friend_id not in friends_id:
                 friends_id.append(friend_id)
+        if friend.state ==2:
+            if str(friend.user2.id) == str(user_id):
+                friend_id = friend.user1.id
+                friends_id.append(friend_id)
     return friends_id
 
 
