@@ -138,6 +138,7 @@ def get_user_info(req: HttpRequest, user_id: int):
                 members=[member.id for member in group.group_members.all()],
                 owner=None if group.group_owner is None else group.group_owner.id,
                 admin=[admin.id for admin in group.group_admin.all()],
+                top_message = [message.message_id for message in group.group_top_message.all()]
             ).model_dump()
     else:
         user = User.objects.get(id=user_id)
