@@ -287,10 +287,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if (
             friendship_now == FriendType.already_friend
-            or friendship_now == FriendType.already_receive_apply
-            or friendship_now == FriendType.already_send_apply
-            or friendship_now == FriendType.already_reject_friend
-            or friendship_now == FriendType.already_been_reject
         ):
             message.content = "Success"
             await self.send_message_to_target(message, str(friend_id))
@@ -304,7 +300,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if friendship_now == FriendType.already_block_friend:
             message.content = "Success"
             await self.send_message_to_target(message, str(friend_id))
-            await db_friendship_change(self.user_id, friend_id, 3)
+            await db_friendship_change(self.user_id, friend_id, 1)
         await self.send_message_to_target(message, str(self.user_id))
 
     async def rcv_delete_friend(self, message: Message):
