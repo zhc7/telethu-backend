@@ -10,13 +10,47 @@ from utils.data import MessageStatusType
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 
 
+def load_message(msg):
+    try:
+        info = json.loads(msg.info)
+    except json.decoder.JSONDecodeError:
+        info = msg.info
+    loaded_message = Message(
+        message_id=msg.message_id,
+        m_type=msg.m_type,
+        t_type=msg.t_type,
+        time=msg.time,
+        content=json.loads(msg.content),
+        sender=msg.sender,
+        receiver=msg.receiver,
+        info=info,
+        who_read=[user.id for user in msg.who_read.all()],
+    )
+    if loaded_message.status == MessageStatusType.RECALLED:
+        loaded_message.content = "This message has been recalled! "
+    return loaded_message
+
+
+def load_message_from_list(msg_list):
+    messages_list = []
+    for msg in msg_list:
+        print("msg.content: ", msg.content)
+        loaded_message = load_message(msg)
+        messages_list.append(loaded_message.model_dump())
+    messages_list.reverse()
+    return messages_list
+
+
 def chat_history(request):
     print("You're getting chat history!")
     # Parameters
     from_value = int(request.GET.get("from", 0))  # Get all the message from this time
     num_value = int(
-        request.GET.get("num", -1))  # Number of messages we ought to get, default to be -1 to show no limits
-    id_value = int(request.GET.get("id", ""))  # id_value stands for the user that receives the message
+        request.GET.get("num", -1)
+    )  # Number of messages we ought to get, default to be -1 to show no limits
+    id_value = int(
+        request.GET.get("id", "")
+    )  # id_value stands for the user that receives the message
     t_type = int(request.GET.get("t_type", ""))
     user_id = int(request.user_id)
     print("user_id is: ", user_id)
@@ -25,11 +59,12 @@ def chat_history(request):
         # we should exclude the message recalled as well as the message deleted by the receiver
         messages = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
-            time__lt=from_value, receiver=id_value, t_type=t_type
+            time__lt=from_value,
+            receiver=id_value,
+            t_type=t_type,
         ).order_by("-time")[:num_value]
 
     else:
-        print("0!")
         # user
         # we should exclude the message recalled as well as the message deleted by the receiver
         messages = MessageList.objects.filter(
@@ -40,24 +75,7 @@ def chat_history(request):
             t_type=t_type,
         ).order_by("-time")[:num_value]
         print("messages: ", messages)
-    messages_list = []
-    for msg in messages:
-        print("msg.content: ", msg.content)
-        a = Message(
-            message_id=msg.message_id,
-            m_type=msg.m_type,
-            t_type=msg.t_type,
-            time=msg.time,
-            content=json.loads(msg.content),
-            sender=msg.sender,
-            receiver=msg.receiver,
-            info=json.loads(msg.info),
-            who_read=[user.id for user in msg.who_read.all()]
-        )
-        if msg.status == MessageStatusType.RECALLED:
-            a.content = "This message has been recalled! "
-        messages_list.append(a.model_dump())
-    messages_list.reverse()
+    messages_list = load_message_from_list(messages)
     print("ready!")
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
@@ -69,29 +87,32 @@ def filter_history(request):
     print("You are filtering history! ")
     from_value = int(request.GET.get("from", 0))  # Get all the message from this time
     to_value = int(
-        request.GET.get("to", -1))  # Get all the message before this time, default to be -1 to show no limits
+        request.GET.get("to", -1)
+    )  # Get all the message before this time, default to be -1 to show no limits
     m_type = int(request.GET.get("m_type", -1))  # m_type
     sender = int(request.GET.get("sender", -1))  # The id of sender
-    content = str(request.GET.get("content", ""))  # The content of the message, user __icontain
+    content = str(
+        request.GET.get("content", "")
+    )  # The content of the message, user __contain
     num_value = int(
-        request.GET.get("num", 100))  # Number of messages we ought to get, default to be -1 to show no limits
+        request.GET.get("num", 100)
+    )  # Number of messages we ought to get, default to be -1 to show no limits
     user_id = int(request.user_id)
     # First, find all the message within from_value and to value
-    messages = []
     if content != "":
         print("content! ")
         messages = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
             ~Q(status=MessageStatusType.RECALLED),
             content__icontains=content,
-            time__gt=from_value
+            time__gt=from_value,
         ).order_by("-time")[:num_value]
         print("messages: ", messages)
     else:
         messages = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
             ~Q(status=MessageStatusType.RECALLED),
-            time__gt=from_value
+            time__gt=from_value,
         ).order_by("-time")[:num_value]
         print("messages: ", messages)
 
@@ -129,30 +150,13 @@ def filter_history(request):
         f_messages = [message for message in messages if message.sender == sender]
         messages = f_messages
 
-    messages_list = []
-    for msg in messages:
-        print("msg.content: ", msg.content)
-        a = Message(
-            message_id=msg.message_id,
-            m_type=msg.m_type,
-            t_type=msg.t_type,
-            time=msg.time,
-            content=json.loads(msg.content),
-            sender=msg.sender,
-            receiver=msg.receiver,
-            info=json.loads(msg.info),
-            who_read=[user.id for user in msg.who_read.all()]
-        )
-        if msg.status == MessageStatusType.RECALLED:
-            a.content = "This message has been recalled! "
-        messages_list.append(a.model_dump())
-    messages_list.reverse()
+    messages_list = load_message_from_list(messages)
 
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
 
 
-def message(request, message_id):
+def get_message(request, message_id):
     if request.method != "GET":
         return BAD_METHOD
     if message_id is None:
@@ -160,15 +164,5 @@ def message(request, message_id):
     message = MessageList.objects.filter(message_id=message_id).first()
     if message is None:
         return request_failed(code=403, info="Message not found! ")
-    message_response = Message(
-        message_id=message.message_id,
-        m_type=message.m_type,
-        t_type=message.t_type,
-        time=message.time,
-        content=json.loads(message.content),
-        sender=message.sender,
-        receiver=message.receiver,
-        info=json.loads(message.info),
-        who_read=[user.id for user in message.who_read.all()]
-    )
+    message_response = load_message(message)
     return request_success(message_response.model_dump())
