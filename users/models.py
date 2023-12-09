@@ -62,7 +62,7 @@ class MessageList(models.Model):
     content = models.TextField()
     sender = models.IntegerField(blank=False, null=False)
     receiver = models.IntegerField(blank=False, null=True)
-    info = models.CharField(max_length=256, default="")
+    info = models.CharField(max_length=256, default="", blank=True, null=True)
     who_read = models.ManyToManyField(User, related_name="who_read")
     deleted_users = models.ManyToManyField(User, related_name="deleted_users")
     status = models.IntegerField(
