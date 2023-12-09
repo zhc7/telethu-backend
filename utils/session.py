@@ -1,6 +1,3 @@
-from utils.utils_request import request_failed
-
-
 class SessionData:
     def __init__(self, request):
         self.request = request
