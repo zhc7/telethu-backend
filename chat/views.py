@@ -51,6 +51,7 @@ def chat_history(request):
             sender=msg.sender,
             receiver=msg.receiver,
             info=msg.info,
+            who_read=[user.id for user in msg.who_read.all()]
         )
         if msg.status == MessageStatusType.RECALLED:
             a.content = "This message has been recalled! "
