@@ -1,6 +1,12 @@
+import json
+from datetime import timedelta
+
 from channels.db import database_sync_to_async
+from django.utils import timezone
+
 from files.models import Multimedia
 from users.models import Friendship, GroupList, User, MessageList
+from utils.data import MessageStatusType
 from utils.data import (
     TargetType,
     UserData,
@@ -8,10 +14,7 @@ from utils.data import (
     FriendType,
 )
 from utils.uid import globalIdMaker
-from utils.data import MessageStatusType
-from django.utils import timezone
-from datetime import timedelta
-import json
+
 
 @database_sync_to_async
 def db_query_group_info(group_id_list) -> dict[int, GroupData]:
@@ -50,7 +53,7 @@ def db_query_friends(user_id):
                 friend_id = friend.user1.id
             if friend_id not in friends_id:
                 friends_id.append(friend_id)
-        if friend.state ==2:
+        if friend.state == 2:
             if str(friend.user2.id) == str(user_id):
                 friend_id = friend.user1.id
                 friends_id.append(friend_id)
@@ -96,6 +99,7 @@ def db_query_group(self_user_id):
             group_admin[group.group_id].append(admin.id)
     return group_id, group_members, group_names, group_owner, group_admin
 
+
 @database_sync_to_async
 def db_query_fri_and_gro_id(user_id):
     fri_gro_id = []
@@ -115,6 +119,7 @@ def db_query_fri_and_gro_id(user_id):
             fri_gro_id.append(group.group_id)
     return fri_gro_id
 
+
 @database_sync_to_async
 def db_build_group(friend_list, user_id, group_name, group_members):
     user = User.objects.filter(id=user_id).first()
@@ -128,7 +133,7 @@ def db_build_group(friend_list, user_id, group_name, group_members):
     id_list = []
     for member in group.group_members.all():
         id_list.append(member.id)
-    return id_list,group.group_id
+    return id_list, group.group_id
 
 
 @database_sync_to_async
@@ -388,8 +393,9 @@ def db_reduce_person(group_id, person_id):
     group_list = [members.id for members in group.group_members.all()]
     return group_list
 
+
 @database_sync_to_async
-def db_recall_member_message(message_id,group_id,user_id):
+def db_recall_member_message(message_id, group_id, user_id):
     message = MessageList.objects.filter(message_id=message_id).first()
     if message_id is None:
         raise KeyError("message not exist")
@@ -416,7 +422,8 @@ def db_recall_member_message(message_id,group_id,user_id):
             return
     else:
         raise KeyError("you are not the owner or admin")
-    
+
+
 @database_sync_to_async
 def db_recall_message(message_id, user_id):
     if message_id is None:
@@ -431,7 +438,7 @@ def db_recall_message(message_id, user_id):
     if message.sender != user_id:
         raise KeyError("You can't recall a message sent by others!")
     # A user can only delete a message that is sent within 2 minutes.
-    message_time = timezone.datetime.fromtimestamp(message.time/1000)
+    message_time = timezone.datetime.fromtimestamp(message.time / 1000)
     message_time = timezone.make_aware(message_time, timezone.get_default_timezone())
     print("message_time is: ", message_time)
     current_time = timezone.now()
@@ -450,8 +457,8 @@ def db_recall_message(message_id, user_id):
     message.status = MessageStatusType.RECALLED
     message.save()
     return
-    
-    
+
+
 @database_sync_to_async
 def db_delete_message(message_id, user_id):
     print("You are deleting a message! ")
@@ -485,6 +492,7 @@ def db_delete_message(message_id, user_id):
         message.deleted_users.add(user_id)
         message.save()
     return
+
 
 @database_sync_to_async
 def db_edit_message(message_id, user_id, new_content):
@@ -520,6 +528,7 @@ def db_edit_message(message_id, user_id, new_content):
     else:
         raise KeyError("message type not found")
 
+
 @database_sync_to_async
 def db_edit_profile(user_id, new_profile):
     user = User.objects.filter(id=user_id).first()
@@ -528,6 +537,7 @@ def db_edit_profile(user_id, new_profile):
     user.profile = new_profile
     user.save()
     return
+
 
 @database_sync_to_async
 def db_delete_group(group_id, user_id):
