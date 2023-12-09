@@ -162,7 +162,7 @@ def message(request, message_id):
         m_type=message.m_type,
         t_type=message.t_type,
         time=message.time,
-        content=message.content,
+        content=json.loads(message.content),
         sender=message.sender,
         receiver=message.receiver,
         info=message.info,
