@@ -78,7 +78,7 @@ class Message(BaseModel):
     receiver: int | None = (
         None  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。如果是群加人，这个放被拉的人
     )
-    info: str | list | None = (
+    info: str | list | dict | None = (
         None  # for message referencing, forwarding and appending info
     )
     who_read: bool | list | None = (
