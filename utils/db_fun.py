@@ -137,25 +137,44 @@ def db_build_group(friend_list, user_id, group_name, group_members):
 
 
 @database_sync_to_async
-def db_add_member(self_user_id, self_friend_list, group_id, add_member):
+def db_add_member(group_id, add_members, self_user_id):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:
-        print("group not exist")
-        return None, None
+        raise KeyError("group not exist")
     # 判断自己是否在群里，不在就加不了人
     user = User.objects.filter(id=self_user_id).first()
     if user not in group.group_members.all():
-        print("user not in group")
-        return None, None
-    # 判断被加的是否是好友
-    for member in add_member:
-        if member in self_friend_list:
-            group.group_members.add(member)
+        raise KeyError("you are not in group")
+    # 加好友列表
+    add_list = []
+    for member in add_members:
+        # 判断加的人存在吗
+        if User.objects.filter(id=member).exists():
+            # 判断加的人是不是自己
+            if member != self_user_id:
+                # 判断加的人是不是已经在群里了
+                if (
+                    User.objects.filter(id=member).first()
+                    not in group.group_members.all()
+                ):
+                    # 判断加的人是不是好友
+                    if (
+                        Friendship.objects.filter(
+                            user1=self_user_id, user2=member
+                        ).exists()
+                        or Friendship.objects.filter(
+                            user2=self_user_id, user1=member
+                        ).exists()
+                    ):
+                        add_list.append(member)
+                        group.group_members.add(member)
     group.save()
+    if len(add_list) == 0:
+        raise KeyError("no one can be added")
     id_list = []
     for member in group.group_members.all():
         id_list.append(member.id)
-    return group, id_list
+    return add_list, id_list
 
 
 @database_sync_to_async
@@ -473,7 +492,9 @@ def db_delete_message(message_id, user_id):
     if message.t_type == 0:
         # personal message
         if message.sender != user_id and message.receiver != user_id:
-            raise KeyError("You can't delete a message that is neither sent or received by you!")
+            raise KeyError(
+                "You can't delete a message that is neither sent or received by you!"
+            )
     else:
         # group message, receiver stands for group_id. We just need to determine whether this user is in the group.
         group = GroupList.objects.filter(group_id=message.receiver).first()
@@ -486,7 +507,9 @@ def db_delete_message(message_id, user_id):
         print("Is member: ", is_member)
         if not is_member:
             print("Not a Member!")
-            raise KeyError("You can't delete a message that's not sent to a group that you're in!")
+            raise KeyError(
+                "You can't delete a message that's not sent to a group that you're in!"
+            )
     if user_id not in message.deleted_users.all():
         print("Deleted!")
         message.deleted_users.add(user_id)
