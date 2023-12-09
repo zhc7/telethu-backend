@@ -164,6 +164,7 @@ def message(request, message_id):
         sender=message.sender,
         receiver=message.receiver,
         info=message.info,
+        who_read=[user.id for user in message.who_read.all()]
     )
     return request_success(message_response.model_dump())
 

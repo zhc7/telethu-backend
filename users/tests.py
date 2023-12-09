@@ -2,7 +2,7 @@ import hashlib
 
 from django.test import TestCase
 from django.urls import reverse
-from users.models import User, Friendship
+from users.models import User, Friendship, GroupList, MessageList
 from utils.utils_jwt import hash_string_with_sha256
 
 
@@ -195,7 +195,7 @@ class UserTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["info"], "Succeed")
 
-    def test_get_user_info_success(self):
+    def test_get_user_info_user_success(self):
         self.client.post(
             reverse("login"),
             {"userEmail": self.user1.userEmail, "password": "test1"},
@@ -210,6 +210,31 @@ class UserTestCase(TestCase):
         self.assertEqual(response.json()["name"], "test1")
         self.assertEqual(response.json()["email"], "test1@qq.com")
         self.assertEqual(response.json()["avatar"], "22933c1646d1f0042e39d7471e42f33b")
+
+    def test_get_user_info_group_success(self):
+        GroupList.objects.create(group_name="test_group", group_avatar="22933c1646d1f0042e39d7471e42f33b", group_owner=self.user1, group_id=10)
+        MessageList.objects.create(m_type=1, t_type=1, time=1, content="test", sender=self.user1.id, receiver=10, message_id=11)
+        group = GroupList.objects.get(group_id=10)
+        self.client.post(
+            reverse("login"),
+            {"userEmail": self.user1.userEmail, "password": "test1"},
+            content_type="application/json",
+        )
+        response = self.client.get(
+            reverse("get_user_info", kwargs={"user_id": 10}),
+            content_type="application/json",
+        )
+        print("----------------------------------")
+        print(response.json())
+        print("----------------------------------")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"], "Succeed")
+        self.assertEqual(response.json()["name"], "test_group")
+        self.assertEqual(response.json()["avatar"], "22933c1646d1f0042e39d7471e42f33b")
+        self.assertEqual(response.json()["top_message"][0], 11)
+
+
+
 
     def test_get_friend_list_success(self):
         Friendship.objects.create(user1=self.user1, user2=self.user2, state=1)

@@ -41,10 +41,15 @@ class HistoryTestCase(TestCase):
             receiver=2,
             info="test",
         )
+        msg = MessageList.objects.get(message_id=1)
+        msg.who_read.add(1)
         response = self.client.get(
             reverse("message", kwargs={"message_id": 1}),
             {"token": token},
             content_type="application/json",
         )
+        print("---------------")
+        print(response.json())
+        print("---------------")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["content"], "test")
