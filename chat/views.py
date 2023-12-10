@@ -44,7 +44,7 @@ def load_message_from_list(msg_list):
 def chat_history(request):
     print("You're getting chat history!")
     # Parameters
-    from_value = int(request.GET.get("from", 0))  # Get all the message from this time
+    from_value = int(request.GET.get("from", 0)) / 1000  # Get all the message from this time
     num_value = int(
         request.GET.get("num", -1)
     )  # Number of messages we ought to get, default to be -1 to show no limits
@@ -85,10 +85,10 @@ def chat_history(request):
 @csrf_exempt
 def filter_history(request):
     print("You are filtering history! ")
-    from_value = int(request.GET.get("from", 0))  # Get all the message from this time
+    from_value = int(request.GET.get("from", 0)) / 1000  # Get all the message from this time
     to_value = int(
         request.GET.get("to", -1)
-    )  # Get all the message before this time, default to be -1 to show no limits
+    ) / 1000  # Get all the message before this time, default to be -1 to show no limits
     m_type = int(request.GET.get("m_type", -1))  # m_type
     sender = int(request.GET.get("sender", -1))  # The id of sender
     content = str(
