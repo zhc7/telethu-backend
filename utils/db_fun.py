@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import timedelta
 
 from channels.db import database_sync_to_async
@@ -457,16 +458,7 @@ def db_recall_message(message_id, user_id):
     if message.sender != user_id:
         raise KeyError("You can't recall a message sent by others!")
     # A user can only delete a message that is sent within 2 minutes.
-    message_time = timezone.datetime.fromtimestamp(message.time / 1000)
-    message_time = timezone.make_aware(message_time, timezone.get_default_timezone())
-    print("message_time is: ", message_time)
-    current_time = timezone.now()
-    current_time = current_time + timedelta(hours=8)
-    print("current_time is: ", current_time)
-    time_difference = current_time - message_time
-    print("The time difference is: ", time_difference)
-    two_minutes = timezone.timedelta(minutes=2)
-    if time_difference > two_minutes:
+    if time.time() - message.time / 1000 > 120:
         raise KeyError("Can't recall a message that is sent over 2 minutes ago!")
     # A message can only be recalled once.
     if message.status == MessageStatusType.RECALLED:
