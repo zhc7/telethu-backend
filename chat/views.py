@@ -54,6 +54,7 @@ def chat_history(request):
     t_type = int(request.GET.get("t_type", ""))
     user_id = int(request.user_id)
     print("user_id is: ", user_id)
+    messages = []
     if t_type == 1:
         # group
         # we should exclude the message recalled as well as the message deleted by the receiver
@@ -63,11 +64,6 @@ def chat_history(request):
             receiver=id_value,
             t_type=t_type,
         ).order_by("-time")[:num_value]
-        message_recalled = []
-        for m in messages:
-            if (m.status & MessageStatusType.RECALLED):
-                m.content = json.dumps("This message has been recalled!")
-            message_recalled.append(m)
 
     else:
         # user
@@ -80,11 +76,12 @@ def chat_history(request):
             t_type=t_type,
         ).order_by("-time")[:num_value]
         #print("messages: ", messages)
-        message_recalled = []
-        for m in messages:
-            if (m.status & MessageStatusType.RECALLED):
-                m.content = json.dumps("This message has been recalled!")
-            message_recalled.append(m)
+    
+    message_recalled = []
+    for m in messages:
+        if (m.status & MessageStatusType.RECALLED):
+            m.content = json.dumps("This message has been recalled!")
+        message_recalled.append(m)
     messages_list = load_message_from_list(message_recalled)
     print("ready!")
     print("messages_list: ", messages_list)
