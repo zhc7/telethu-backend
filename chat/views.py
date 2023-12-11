@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from users.models import MessageList, GroupList, User
-from utils.data import Message
+from utils.data import Message, TargetType
 from utils.data import MessageStatusType
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 
@@ -45,6 +45,7 @@ def chat_history(request):
     print("You're getting chat history!")
     # Parameters
     from_value = int(request.GET.get("from", 0))  # Get all the message from this time
+    to_value = int(request.GET.get("to", 0))
     num_value = int(
         request.GET.get("num", -1)
     )  # Number of messages we ought to get, default to be -1 to show no limits
@@ -53,14 +54,14 @@ def chat_history(request):
     )  # id_value stands for the user that receives the message
     t_type = int(request.GET.get("t_type", ""))
     user_id = int(request.user_id)
-    print("user_id is: ", user_id)
-    messages = []
-    if t_type == 1:
+
+    if t_type == TargetType.GROUP:
         # group
         # we should exclude the message recalled as well as the message deleted by the receiver
         messages = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
             time__lt=from_value,
+            time__gt=to_value,
             receiver=id_value,
             t_type=t_type,
         ).order_by("-time")[:num_value]
@@ -73,20 +74,19 @@ def chat_history(request):
             | Q((Q(receiver=id_value) & Q(sender=user_id))),
             ~Q(deleted_users__in=[user_id]),
             time__lt=from_value,
+            time__gt=to_value,
             t_type=t_type,
         ).order_by("-time")[:num_value]
-        #print("messages: ", messages)
-    
-    message_recalled = []
+
+    message_filtered = []
     for m in messages:
-        if (m.status & MessageStatusType.RECALLED):
+        if m.status & MessageStatusType.RECALLED:
             m.content = json.dumps("This message has been recalled!")
-        message_recalled.append(m)
-    messages_list = load_message_from_list(message_recalled)
-    print("ready!")
+        message_filtered.append(m)
+    messages_list = load_message_from_list(message_filtered)
+
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
-    # TODO: 利用上述字段获取数据库中数据
 
 
 @csrf_exempt
@@ -118,7 +118,7 @@ def filter_history(request):
             time__gt=from_value,
         ).order_by("-time")[:num_value]     
         for m in messages_unrecalled:
-            if (m.status & MessageStatusType.RECALLED):
+            if m.status & MessageStatusType.RECALLED:
                 m.content = json.dumps("This message has been recalled!")
             messages.append(m)
     else:
@@ -127,7 +127,7 @@ def filter_history(request):
             time__gt=from_value,
         ).order_by("-time")[:num_value]
         for m in messages_unrecalled:
-            if (m.status & MessageStatusType.RECALLED):
+            if m.status & MessageStatusType.RECALLED:
                 m.content = json.dumps("This message has been recalled!")
             messages.append(m)
 
