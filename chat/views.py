@@ -39,7 +39,7 @@ def load_message_from_list(msg_list):
         messages_list.append(loaded_message.model_dump())
     return messages_list
 
-
+@csrf_exempt
 def chat_history(request):
     print("You're getting chat history!")
     # Parameters
@@ -119,11 +119,11 @@ def filter_history(request):
     if in_group is None:
         # id stands for user
         if id_value != user_id:
-            return request_failed("can't view other's chat history!")
+            return request_failed(code=403, info="can't view other's chat history!")
     else:
         is_member = user in in_group.group_members.all()
         if not is_member:
-            return request_failed("can't view chat history in a group that you are not in!")
+            return request_failed(code=403, info="can't view chat history in a group that you are not in!")
     
     messages = []
     if content != "":
