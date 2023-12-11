@@ -46,6 +46,7 @@ def chat_history(request):
     # Parameters
     from_value = int(request.GET.get("from", 0))  # Get all the message from this time
     to_value = int(request.GET.get("to", 0))
+    alignment = request.GET.get("alignment", "from")
     num_value = int(
         request.GET.get("num", -1)
     )  # Number of messages we ought to get, default to be -1 to show no limits
@@ -64,7 +65,7 @@ def chat_history(request):
             time__gt=to_value,
             receiver=id_value,
             t_type=t_type,
-        ).order_by("-time")[:num_value]
+        ).order_by("-time")
 
     else:
         # user
@@ -76,7 +77,9 @@ def chat_history(request):
             time__lt=from_value,
             time__gt=to_value,
             t_type=t_type,
-        ).order_by("-time")[:num_value]
+        ).order_by("-time")
+
+    messages = messages[:num_value] if alignment == "from" else messages[-num_value:]
 
     message_filtered = []
     for m in messages:
