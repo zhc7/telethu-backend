@@ -37,7 +37,6 @@ def load_message_from_list(msg_list):
         print("msg.content: ", msg.content)
         loaded_message = load_message(msg)
         messages_list.append(loaded_message.model_dump())
-    messages_list.reverse()
     return messages_list
 
 
@@ -65,7 +64,7 @@ def chat_history(request):
             time__gt=to_value,
             receiver=id_value,
             t_type=t_type,
-        ).order_by("-time")
+        ).order_by("-time" if alignment == "from" else "time")[:num_value]
 
     else:
         # user
@@ -77,9 +76,7 @@ def chat_history(request):
             time__lt=from_value,
             time__gt=to_value,
             t_type=t_type,
-        ).order_by("-time")
-
-    messages = messages[:num_value] if alignment == "from" else messages[-num_value:]
+        ).order_by("-time" if alignment == "from" else "time")[:num_value]
 
     message_filtered = []
     for m in messages:
@@ -87,6 +84,8 @@ def chat_history(request):
             m.content = json.dumps("This message has been recalled!")
         message_filtered.append(m)
     messages_list = load_message_from_list(message_filtered)
+    if alignment == "from":
+        messages_list.reverse()
 
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
@@ -119,7 +118,7 @@ def filter_history(request):
             ~Q(deleted_users__in=[user_id]),
             content__icontains=content,
             time__gt=from_value,
-        ).order_by("-time")[:num_value]     
+        ).order_by("-time")[:num_value]
         for m in messages_unrecalled:
             if m.status & MessageStatusType.RECALLED:
                 m.content = json.dumps("This message has been recalled!")
@@ -167,13 +166,14 @@ def filter_history(request):
     if sender != -1:
         f_messages = [message for message in messages if message.sender == sender]
         messages = f_messages
-        
+
     # if receiver != -1, then filter all the message received by id_value
     if id_value != -1:
         f_messages = [message for message in messages if message.receiver == id_value]
         messages = f_messages
 
     messages_list = load_message_from_list(messages)
+    messages_list.reverse()
 
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
