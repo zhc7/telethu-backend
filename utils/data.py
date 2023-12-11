@@ -39,6 +39,7 @@ class MessageType(enum.IntEnum):
     FUNC_EDIT_MESSAGE = 28
     FUNC_EDIT_PROFILE = 29
     FUNC_DELETE_GROUP = 30
+    FUNC_CHANGE_GROUP_NAME = 31
 
 
 class TargetType(enum.IntEnum):
@@ -79,7 +80,7 @@ class Message(BaseModel):
     m_type: MessageType = MessageType.TEXT
     t_type: TargetType = TargetType.OTHER
     time: float = None  # write by backend
-    content: str | list | int | GroupData | UserData   # 如果是消息，content 是 str，如果是函数，content 是 list,如果是群加人，这个放群id
+    content: str | list | int | GroupData | UserData  # 如果是消息，content 是 str，如果是函数，content 是 list,如果是群加人，这个放群id
     sender: int = None  # 如果是消息，sender 是发送者的 id，如果是函数，sender 是函数的发起者的 id。如果是群加人，这个放拉人的人
     receiver: int | None = (
         None  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。如果是群加人，这个放被拉的人
@@ -87,9 +88,7 @@ class Message(BaseModel):
     info: str | list | dict | None = (
         None  # for message referencing, forwarding and appending info
     )
-    who_read: bool | list | None = (
-        None  # list for group chat, bool for personal chat
-    )
+    who_read: bool | list | None = None  # list for group chat, bool for personal chat
     status: MessageStatusType | None = MessageStatusType.NORMAL
 
 
