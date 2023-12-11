@@ -546,11 +546,15 @@ def db_edit_message(message_id, user_id, new_content):
 
 @database_sync_to_async
 def db_edit_profile(user_id, new_profile):
-    user = User.objects.filter(id=user_id).first()
-    if user is None:
-        raise KeyError("user not found")
-    user.profile = new_profile
-    user.save()
+    try:
+        user = User.objects.filter(id=user_id).first()
+        if user is None:
+            raise KeyError("user not found")
+        user.profile = new_profile
+        user.save()
+    except Exception as e:
+        print(e)
+        raise KeyError("edit profile failed")
     return
 
 
@@ -570,3 +574,18 @@ def db_delete_group(group_id, user_id):
         message.delete()
     group.delete()
     return group_member
+
+
+@database_sync_to_async
+def db_change_group_name(group_id, group_name, user_id):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group not found")
+    if group.group_owner is None:
+        raise KeyError("group owner not found")
+    if group.group_owner.id != user_id and user_id not in group.group_admin.all():
+        raise KeyError("you are not the owner or admin")
+    group.group_name = group_name
+    group.save()
+    group_list = [members.id for members in group.group_members.all()]
+    return group_list

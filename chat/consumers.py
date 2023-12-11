@@ -28,6 +28,7 @@ from utils.db_fun import (
     db_recall_message,
     db_edit_profile,
     db_delete_group,
+    db_change_group_name,
 )
 
 from utils.ack_manager import AckManager
@@ -169,7 +170,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # step 4. handle message
         # to sync across same user's different devices
-        Message.sender = self.user_id
+
         handler: Callable[[Message], Any] = {
             MessageType.FUNC_CREATE_GROUP: self.rcv_create_group,
             MessageType.FUNC_ADD_GROUP_MEMBER: self.rcv_add_group_member,
@@ -194,6 +195,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_RECALL_SELF_MESSAGE: self.rcv_callback_self_message,
             MessageType.FUNC_EDIT_PROFILE: self.rcv_edit_profile,
             MessageType.FUNC_DELETE_GROUP: self.rcv_delete_group,
+            MessageType.FUNC_CHANGE_GROUP_NAME: self.rcv_change_group_name,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 
@@ -519,6 +521,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.sender = self.user_id
         for member in group_member:
             await self.send_message_to_target(message, str(member))
+
+    async def rcv_change_group_name(self, message: Message):
+        group_id = message.receiver
+        group_name = message.content
+        try:
+            group_list = await db_change_group_name(group_id, group_name, self.user_id)
+        except KeyError as e:
+            message.content = str(e)
+            message.t_type = TargetType.ERROR
+            await self.send_message_to_front(message)
+            return
+        message.sender = self.user_id
+        for member in group_list:
+            await self.send_message_to_target(message, str(member))
+
+
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -577,6 +595,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_RECALL_SELF_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_EDIT_PROFILE: self.send_message_to_front,
             MessageType.FUNC_DELETE_GROUP: self.cb_delete_group,
+            MessageType.FUNC_CHANGE_GROUP_NAME: self.send_message_to_front,
         }.get(message.m_type, self.send_message_to_front)
         await handler(message)
 
