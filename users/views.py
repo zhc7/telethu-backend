@@ -163,6 +163,9 @@ def get_list(req: HttpRequest, list_name: str):
         for friendship in user.user2_friendships.all():
             if friendship.state == 1:
                 friends.append(friendship.user1)
+        for friendship in user.user2_friendships.all():
+            if friendship.state == 2:
+                friends.append(friendship.user1)
     elif list_name == "apply":
         for friendship in user.user2_friendships.all():
             if friendship.state == 0:
@@ -173,17 +176,7 @@ def get_list(req: HttpRequest, list_name: str):
                 friends.append(friendship.user2)
     else:
         raise KeyError("Bad list name(wrong in backend", 400)
-    response_data = {
-        "friends": [
-            UserData(
-                id=friend.id,
-                name=friend.username,
-                avatar=friend.avatar,
-                email=friend.userEmail,
-            ).model_dump()
-            for friend in friends
-        ]
-    }
+    response_data = [friend.id for friend in friends]
     return response_data
 
 
