@@ -108,4 +108,3 @@ class FriendType(enum.IntEnum):
     already_been_reject = 7
     relationship_not_exist = 8
     friend_not_exist = 9
-

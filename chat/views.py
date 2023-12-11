@@ -111,7 +111,7 @@ def filter_history(request):
     )  # Number of messages we ought to get, default to be -1 to show no limits
     user_id = int(request.user_id)
     # First, find all the message within from_value and to value
-    
+
     # Note that id_value stands for the receiver for search, therefore the user has a risk of searching other's
     # chat history.
     user = User.objects.filter(id=user_id).first()
@@ -123,8 +123,10 @@ def filter_history(request):
     else:
         is_member = user in in_group.group_members.all()
         if not is_member:
-            return request_failed("can't view chat history in a group that you are not in!")
-    
+            return request_failed(
+                "can't view chat history in a group that you are not in!"
+            )
+
     messages = []
     if content != "":
         print("content! ")
@@ -149,7 +151,6 @@ def filter_history(request):
 
     # You may get some message that you shouldn't receive
     f_messages = []
-    
 
     # Preprocessing
     for message in messages:

@@ -138,7 +138,9 @@ def get_user_info(req: HttpRequest, user_id: int):
                 members=[member.id for member in group.group_members.all()],
                 owner=None if group.group_owner is None else group.group_owner.id,
                 admin=[admin.id for admin in group.group_admin.all()],
-                top_message = [message.message_id for message in group.group_top_message.all()]
+                top_message=[
+                    message.message_id for message in group.group_top_message.all()
+                ],
             ).model_dump()
     else:
         user = User.objects.get(id=user_id)
@@ -176,7 +178,7 @@ def get_list(req: HttpRequest, list_name: str):
                 friends.append(friendship.user2)
     else:
         raise KeyError("Bad list name(wrong in backend", 400)
-    response_data = [friend.id for friend in friends]
+    response_data = {"list": [friend.id for friend in friends]}
     return response_data
 
 
@@ -367,7 +369,5 @@ def block_user_list(req: HttpRequest):
     for friendship in user.user1_friendships.all():
         if friendship.state == 2:
             block_list.append(friendship.user2.id)
-    response = {
-        "block_list": block_list
-    }
+    response = {"block_list": block_list}
     return JsonResponse(response)

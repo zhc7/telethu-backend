@@ -1,8 +1,11 @@
 from django.test import TestCase
+import json
 from files.models import Multimedia
 from users.models import User, MessageList
 from utils.utils_jwt import hash_string_with_sha256
 from django.urls import reverse
+
+
 class HistoryTestCase(TestCase):
     def setUp(self):
         # TODO: zry
@@ -31,12 +34,14 @@ class HistoryTestCase(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         token = response.json()["token"]
+        content = "test"
+        content = json.dumps(content)
         MessageList.objects.create(
             message_id=1,
             m_type=0,
             t_type=0,
             time=0,
-            content="test",
+            content=content,
             sender=1,
             receiver=2,
             info="test",

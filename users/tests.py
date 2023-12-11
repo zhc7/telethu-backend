@@ -1,4 +1,5 @@
 import hashlib
+import json
 
 from django.test import TestCase
 from django.urls import reverse
@@ -212,9 +213,23 @@ class UserTestCase(TestCase):
         self.assertEqual(response.json()["avatar"], "22933c1646d1f0042e39d7471e42f33b")
 
     def test_get_user_info_group_success(self):
-        GroupList.objects.create(group_name="test_group", group_avatar="22933c1646d1f0042e39d7471e42f33b", group_owner=self.user1, group_id=10)
-        MessageList.objects.create(m_type=1, t_type=1, time=1, content="test", sender=self.user1.id, receiver=10, message_id=11)
+        GroupList.objects.create(
+            group_name="test_group",
+            group_avatar="22933c1646d1f0042e39d7471e42f33b",
+            group_owner=self.user1,
+            group_id=10,
+        )
+        MessageList.objects.create(
+            m_type=1,
+            t_type=1,
+            time=1,
+            content="test",
+            sender=self.user1.id,
+            receiver=10,
+            message_id=11,
+        )
         group = GroupList.objects.get(group_id=10)
+        group.group_top_message.add(11)
         self.client.post(
             reverse("login"),
             {"userEmail": self.user1.userEmail, "password": "test1"},
@@ -224,17 +239,11 @@ class UserTestCase(TestCase):
             reverse("get_user_info", kwargs={"user_id": 10}),
             content_type="application/json",
         )
-        print("----------------------------------")
-        print(response.json())
-        print("----------------------------------")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["info"], "Succeed")
         self.assertEqual(response.json()["name"], "test_group")
         self.assertEqual(response.json()["avatar"], "22933c1646d1f0042e39d7471e42f33b")
         self.assertEqual(response.json()["top_message"][0], 11)
-
-
-
 
     def test_get_friend_list_success(self):
         Friendship.objects.create(user1=self.user1, user2=self.user2, state=1)
@@ -249,10 +258,7 @@ class UserTestCase(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["info"], "Succeed")
-        self.assertEqual(response.json()["friends"][0]["email"], "test2@qq.com")
-        self.assertEqual(
-            response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b"
-        )
+        self.assertEqual(response.json()["list"], [2])
 
     def test_get_apply_list(self):
         Friendship.objects.create(user1=self.user1, user2=self.user2, state=0)
@@ -267,11 +273,7 @@ class UserTestCase(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["info"], "Succeed")
-        self.assertEqual(response.json()["friends"][0]["name"], "test1")
-        self.assertEqual(response.json()["friends"][0]["email"], "test1@qq.com")
-        self.assertEqual(
-            response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b"
-        )
+        self.assertEqual(response.json()["list"], [1])
 
     def test_get_you_apply_list(self):
         Friendship.objects.create(user1=self.user1, user2=self.user2, state=0)
@@ -286,11 +288,7 @@ class UserTestCase(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["info"], "Succeed")
-        self.assertEqual(response.json()["friends"][0]["name"], "test2")
-        self.assertEqual(response.json()["friends"][0]["email"], "test2@qq.com")
-        self.assertEqual(
-            response.json()["friends"][0]["avatar"], "22933c1646d1f0042e39d7471e42f33b"
-        )
+        self.assertEqual(response.json()["list"], [2])
 
     def test_verify_success(self):
         # TODO: zry来写这个测试

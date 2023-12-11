@@ -34,6 +34,7 @@ def storage_callback(ch, method, properties, body):
         ch.basic_ack(delivery_tag=method.delivery_tag)
         print("stored")
 
+
 def start_storage():
     while True:
         try:

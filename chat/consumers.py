@@ -217,10 +217,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content.members = [self.user_id] + message.content.members
         group_name = message.content.name
         group_members = message.content.members
-        group_list,group_id = await db_build_group(
+        group_list, group_id = await db_build_group(
             self.friend_list, self.user_id, group_name, group_members
         )
-        message.content=group_id
+        message.content = group_id
         for member in group_list:
             await self.send_message_to_target(message, str(member))
 
@@ -237,8 +237,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return None
         group_id = message.receiver
         group_add_members = message.content
-        try :
-            add_list,group_list = await db_add_member(group_id, group_add_members, self.user_id)
+        try:
+            add_list, group_list = await db_add_member(
+                group_id, group_add_members, self.user_id
+            )
         except KeyError as e:
             message.content = str(e)
             message.t_type = TargetType.ERROR
@@ -287,9 +289,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         friend_id = message.receiver
         message.sender = self.user_id
         friendship_now, message.content = await db_friendship(self.user_id, friend_id)
-        if (
-            friendship_now == FriendType.already_friend
-        ):
+        if friendship_now == FriendType.already_friend:
             message.content = "Success"
             await self.send_message_to_target(message, str(friend_id))
             await db_friendship_change(self.user_id, friend_id, 2)
@@ -333,9 +333,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def rcv_read_message(self, message: Message):
         message_id = int(message.content)
         try:
-            message_sender, message_receiver, message_t_type = await db_add_read_message(
-                self.group_list, message_id, self.user_id
-            )
+            (
+                message_sender,
+                message_receiver,
+                message_t_type,
+            ) = await db_add_read_message(self.group_list, message_id, self.user_id)
         except KeyError as e:
             message.content = str(e)
             message.t_type = TargetType.ERROR
@@ -535,7 +537,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.sender = self.user_id
         for member in group_list:
             await self.send_message_to_target(message, str(member))
-
 
     async def rcv_handle_common_message(self, message_received: Message):
         if message_received.m_type != MessageType.TEXT:  # multimedia
