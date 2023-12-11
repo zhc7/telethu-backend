@@ -1,6 +1,6 @@
 import json
 
-from django.db.models import Q
+from django.db.models import Q, F
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -63,6 +63,11 @@ def chat_history(request):
             receiver=id_value,
             t_type=t_type,
         ).order_by("-time")[:num_value]
+        message_recalled = []
+        for m in messages:
+            if (m.status & MessageStatusType.RECALLED):
+                m.content = json.dumps("This message has been recalled!")
+            message_recalled.append(m)
 
     else:
         # user
@@ -74,8 +79,13 @@ def chat_history(request):
             time__lt=from_value,
             t_type=t_type,
         ).order_by("-time")[:num_value]
-        print("messages: ", messages)
-    messages_list = load_message_from_list(messages)
+        #print("messages: ", messages)
+        message_recalled = []
+        for m in messages:
+            if (m.status & MessageStatusType.RECALLED):
+                m.content = json.dumps("This message has been recalled!")
+            message_recalled.append(m)
+    messages_list = load_message_from_list(message_recalled)
     print("ready!")
     print("messages_list: ", messages_list)
     return JsonResponse(messages_list, safe=False)
@@ -101,20 +111,26 @@ def filter_history(request):
     # First, find all the message within from_value and to value
     if content != "":
         print("content! ")
-        messages = MessageList.objects.filter(
+        messages_unrecalled = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
-            ~Q(status=MessageStatusType.RECALLED),
             content__icontains=content,
             time__gt=from_value,
         ).order_by("-time")[:num_value]
-        print("messages: ", messages)
+        messages = []
+        for m in messages_unrecalled:
+            if (m.status & MessageStatusType.RECALLED):
+                m.content = json.dumps("This message has been recalled!")
+            messages.append(m)
     else:
-        messages = MessageList.objects.filter(
+        messages_unrecalled = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
-            ~Q(status=MessageStatusType.RECALLED),
             time__gt=from_value,
         ).order_by("-time")[:num_value]
-        print("messages: ", messages)
+        messages = []
+        for m in messages_unrecalled:
+            if (m.status & MessageStatusType.RECALLED):
+                m.content = json.dumps("This message has been recalled!")
+            messages.append(m)
 
     # You may get some message that you shouldn't receive
     f_messages = []

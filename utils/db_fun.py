@@ -428,7 +428,7 @@ def db_recall_member_message(message_id, group_id, user_id):
     if group.group_owner is None:
         raise KeyError("group owner not exist,this group must be deleted")
     if user_id == group.group_owner.id:
-        message.status = MessageStatusType.RECALLED
+        message.status = message.status | MessageStatusType.RECALLED
         message.save()
         return
     elif user_id in group.group_admin.all():
@@ -437,7 +437,7 @@ def db_recall_member_message(message_id, group_id, user_id):
         elif sender_id in group.group_admin.all():
             raise KeyError("you cannot recall admin's message if you are not owner")
         else:
-            message.status = MessageStatusType.RECALLED
+            message.status = message.status | MessageStatusType.RECALLED
             message.save()
             return
     else:
@@ -461,11 +461,11 @@ def db_recall_message(message_id, user_id):
     if time.time() - message.time / 1000 > 120:
         raise KeyError("Can't recall a message that is sent over 2 minutes ago!")
     # A message can only be recalled once.
-    if message.status == MessageStatusType.RECALLED:
+    if message.status & MessageStatusType.RECALLED:
         raise KeyError("A message can only be recalled once!")
     # All the possible exceptions should be handled above.
     print("Recall the message!")
-    message.status = MessageStatusType.RECALLED
+    message.status = message.status | MessageStatusType.RECALLED
     message.save()
     return
 
@@ -527,7 +527,7 @@ def db_edit_message(message_id, user_id, new_content):
     if message.sender != user_id:
         raise KeyError("You can't edit a message sent by others!")
     message.content = json.dumps(new_content)
-    message.status = MessageStatusType.EDITED
+    message.status = message.status | MessageStatusType.EDITED
     message.save()
     if message.t_type == 0:
         # personal message
