@@ -165,6 +165,7 @@ def filter_history(request):
         f_messages = [message for message in messages if message.sender == sender]
         messages = f_messages
         
+    # if receiver != -1, then filter all the message received by id_value
     if id_value != -1:
         f_messages = [message for message in messages if message.receiver == id_value]
         messages = f_messages
