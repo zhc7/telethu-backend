@@ -24,7 +24,7 @@ def storage_callback(ch, method, properties, body):
             ),
             sender=message.sender,
             receiver=message.receiver,
-            info=message.info,
+            info=json.dumps(message.info),
         )
         mes.save()
     except Exception as e:

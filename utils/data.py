@@ -68,6 +68,12 @@ class GroupData(ContactsData):
     category: str = "group"
 
 
+class MessageStatusType(IntFlag):
+    NORMAL = auto()
+    RECALLED = auto()
+    EDITED = auto()
+
+
 class Message(BaseModel):
     message_id: int | str = None  # str if id is temporary
     m_type: MessageType = MessageType.TEXT
@@ -78,12 +84,13 @@ class Message(BaseModel):
     receiver: int | None = (
         None  # 如果是消息，receiver 是接收者的 id，如果是函数，receiver 是函数的接收者的 id。如果是群加人，这个放被拉的人
     )
-    info: str | list | None = (
+    info: str | list | dict | None = (
         None  # for message referencing, forwarding and appending info
     )
     who_read: bool | list | None = (
         None  # list for group chat, bool for personal chat
     )
+    status: MessageStatusType | None = MessageStatusType.NORMAL
 
 
 class Ack(BaseModel):
@@ -103,8 +110,3 @@ class FriendType(enum.IntEnum):
     relationship_not_exist = 8
     friend_not_exist = 9
 
-
-class MessageStatusType(IntFlag):
-    NORMAL = auto()
-    RECALLED = auto()
-    EDITED = auto()
