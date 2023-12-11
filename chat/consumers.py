@@ -169,7 +169,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # step 4. handle message
         # to sync across same user's different devices
-        Message.sender = self.user_id
+
         handler: Callable[[Message], Any] = {
             MessageType.FUNC_CREATE_GROUP: self.rcv_create_group,
             MessageType.FUNC_ADD_GROUP_MEMBER: self.rcv_add_group_member,
