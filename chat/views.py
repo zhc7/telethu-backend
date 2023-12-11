@@ -96,6 +96,9 @@ def filter_history(request):
     to_value = int(
         request.GET.get("to", -1)
     )  # Get all the message before this time, default to be -1 to show no limits
+    id_value = int(
+        request.GET.get("id", -1)
+    )  # id_value stands for the user that receives the message
     m_type = int(request.GET.get("m_type", -1))  # m_type
     sender = int(request.GET.get("sender", -1))  # The id of sender
     content = str(
@@ -106,14 +109,14 @@ def filter_history(request):
     )  # Number of messages we ought to get, default to be -1 to show no limits
     user_id = int(request.user_id)
     # First, find all the message within from_value and to value
+    messages = []
     if content != "":
         print("content! ")
         messages_unrecalled = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
             content__icontains=content,
             time__gt=from_value,
-        ).order_by("-time")[:num_value]
-        messages = []
+        ).order_by("-time")[:num_value]     
         for m in messages_unrecalled:
             if (m.status & MessageStatusType.RECALLED):
                 m.content = json.dumps("This message has been recalled!")
@@ -123,7 +126,6 @@ def filter_history(request):
             ~Q(deleted_users__in=[user_id]),
             time__gt=from_value,
         ).order_by("-time")[:num_value]
-        messages = []
         for m in messages_unrecalled:
             if (m.status & MessageStatusType.RECALLED):
                 m.content = json.dumps("This message has been recalled!")
@@ -161,6 +163,10 @@ def filter_history(request):
     # if sender != -1, then filter all the message sent by sender
     if sender != -1:
         f_messages = [message for message in messages if message.sender == sender]
+        messages = f_messages
+        
+    if id_value != -1:
+        f_messages = [message for message in messages if message.receiver == id_value]
         messages = f_messages
 
     messages_list = load_message_from_list(messages)
