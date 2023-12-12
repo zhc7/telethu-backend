@@ -388,5 +388,10 @@ def edit_profile(req: HttpRequest):
     if new_email:
         user.userEmail = new_email
     user.save()
-    return request_success()
+    return JsonResponse({
+        'id': user.id,
+        'name': user.username,
+        'email': user.userEmail,
+        'avatar': user.avatar,
+    })
 
