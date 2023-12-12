@@ -4,22 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
-        ("users", "0002_grouplist"),
+        ('users', '0002_grouplist'),
     ]
 
     operations = [
         migrations.CreateModel(
-            name="MessageList",
+            name='MessageList',
             fields=[
-                ("message_id", models.AutoField(primary_key=True, serialize=False)),
-                ("m_type", models.IntegerField()),
-                ("t_type", models.IntegerField()),
-                ("time", models.FloatField()),
-                ("content", models.TextField()),
-                ("sender", models.IntegerField()),
-                ("receiver", models.IntegerField()),
-                ("info", models.CharField(default="", max_length=256)),
+                ('message_id', models.AutoField(primary_key=True, serialize=False)),
+                ('m_type', models.IntegerField()),
+                ('t_type', models.IntegerField()),
+                ('time', models.FloatField()),
+                ('content', models.TextField()),
+                ('sender', models.IntegerField()),
+                ('receiver', models.IntegerField()),
+                ('info', models.CharField(default='', max_length=256)),
             ],
         ),
     ]
