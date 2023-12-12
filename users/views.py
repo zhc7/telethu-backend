@@ -383,10 +383,12 @@ def edit_profile(req: HttpRequest):
     body = json.loads(req.body)
     new_name = body.get('name')
     new_email = body.get('email')
+    if new_email:
+        if User.objects.filter(userEmail=new_email).exists() and User.objects.get(userEmail=new_email).id != user.id:
+            return request_failed(2, "Email duplicated", 403)
+        user.userEmail = new_email
     if new_name:
         user.username = new_name
-    if new_email:
-        user.userEmail = new_email
     user.save()
     return JsonResponse({
         'id': user.id,
@@ -395,3 +397,10 @@ def edit_profile(req: HttpRequest):
         'avatar': user.avatar,
     })
 
+
+@csrf_exempt
+def email_exists(req: HttpRequest, query_email: str):
+    if req.method != "GET":
+        return BAD_METHOD
+    exists = User.objects.filter(userEmail=query_email).exists()
+    return HttpResponse(exists)

@@ -146,6 +146,7 @@ class SimpleMiddleware:
         print("In auth middleware!")
         if (
             not path.endswith("/login")
+            and not path.startswith("/users/email_exists")
             and not path.endswith("/register")
             and "verify" not in path
         ):
