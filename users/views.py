@@ -5,6 +5,7 @@ import os
 import magic
 from django.core.signing import loads
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
@@ -151,6 +152,7 @@ def get_user_info(req: HttpRequest, user_id: int):
             email=user.userEmail,
         ).model_dump()
     return request_success(response_data)
+
 
 
 def get_list(req: HttpRequest, list_name: str):
@@ -371,3 +373,20 @@ def block_user_list(req: HttpRequest):
             block_list.append(friendship.user2.id)
     response = {"block_list": block_list}
     return JsonResponse(response)
+
+
+@csrf_exempt
+def edit_profile(req: HttpRequest):
+    if req.method != "POST":
+        return BAD_METHOD
+    user = get_object_or_404(User, id=req.user_id)
+    body = json.loads(req.body)
+    new_name = body.get('name')
+    new_email = body.get('email')
+    if new_name:
+        user.username = new_name
+    if new_email:
+        user.userEmail = new_email
+    user.save()
+    return request_success()
+
