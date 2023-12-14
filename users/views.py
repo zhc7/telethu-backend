@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 
 import magic
 from django.core.signing import loads
@@ -125,6 +126,8 @@ def register(req: HttpRequest):
 
 @require_GET
 def get_user_info(req: HttpRequest, user_id: int):
+    if req.method != "GET":
+        return BAD_METHOD
     if_user_exit = User.objects.filter(id=user_id, is_deleted=False).exists()
     if if_user_exit is False:
         if_group_exit = GroupList.objects.filter(group_id=user_id).exists()
@@ -152,7 +155,6 @@ def get_user_info(req: HttpRequest, user_id: int):
             email=user.userEmail,
         ).model_dump()
     return request_success(response_data)
-
 
 
 def get_list(req: HttpRequest, list_name: str):
@@ -310,25 +312,33 @@ def user_search(req: HttpRequest):
     user_message = require(
         body, "info", "string", err_msg="Missing or error type of [info]"
     )
-    search_type = require(
-        body, "type", "int", err_msg="Missing or error type of [type]"
-    )
-    user_list = []
-    if search_type == 0:  # user_id
-        if not User.objects.filter(id=user_message).exists():
-            return request_failed(2, "User not exists", status_code=403)
-        user = User.objects.get(id=user_message)
-        user_list.append(user)
-    elif search_type == 1:  # user_email
-        user_list = User.objects.filter(userEmail__icontains=user_message)
-        if len(user_list) == 0:
-            return request_failed(2, "User not exists", status_code=403)
-    elif search_type == 2:  # user_name
-        user_list = User.objects.filter(username__icontains=user_message)
-        if len(user_list) == 0:
-            return request_failed(2, "User not exists", status_code=403)
+    # 用正则表达式匹配info内容，如果是数字，type就是0，如果是邮箱，type就是1，如果是用户名，type就是2
+    pattern0 = re.compile(r"^[0-9]*$")
+    pattern1 = re.compile(r"^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$")
+    if pattern0.match(user_message):
+        search_type = 0
+    elif pattern1.match(user_message):
+        search_type = 1
     else:
-        return BAD_METHOD
+        search_type = 2
+    user_list = []
+    id_list = []
+    if search_type == 0:  # user_id,只有全为数字才能这么搜
+        if User.objects.filter(id=user_message).exists():
+            user = User.objects.get(id=user_message)
+            id_list.append(user)
+    email_list = User.objects.filter(userEmail__icontains=user_message)
+    name_list = User.objects.filter(username__icontains=user_message)
+    if search_type == 0:
+        user_list.extend(id_list)
+        user_list.extend(email_list)
+        user_list.extend(name_list)
+    elif search_type == 1:
+        user_list.extend(email_list)
+        user_list.extend(name_list)
+    else:
+        user_list.extend(name_list)
+        user_list.extend(email_list)
     response_data = {
         "users": [
             UserData(
@@ -381,21 +391,26 @@ def edit_profile(req: HttpRequest):
         return BAD_METHOD
     user = get_object_or_404(User, id=req.user_id)
     body = json.loads(req.body)
-    new_name = body.get('name')
-    new_email = body.get('email')
+    new_name = body.get("name")
+    new_email = body.get("email")
     if new_email:
-        if User.objects.filter(userEmail=new_email).exists() and User.objects.get(userEmail=new_email).id != user.id:
+        if (
+            User.objects.filter(userEmail=new_email).exists()
+            and User.objects.get(userEmail=new_email).id != user.id
+        ):
             return request_failed(2, "Email duplicated", 403)
         user.userEmail = new_email
     if new_name:
         user.username = new_name
     user.save()
-    return JsonResponse({
-        'id': user.id,
-        'name': user.username,
-        'email': user.userEmail,
-        'avatar': user.avatar,
-    })
+    return JsonResponse(
+        {
+            "id": user.id,
+            "name": user.username,
+            "email": user.userEmail,
+            "avatar": user.avatar,
+        }
+    )
 
 
 @csrf_exempt
