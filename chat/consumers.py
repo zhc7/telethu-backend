@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Callable, Any
 
 import aio_pika
@@ -134,7 +135,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # received a normal message
         message_received = Message.model_validate(dict_data)
         print(message_received.model_dump())
+        # override fields
         message_received.sender = self.user_id
+        message_received.who_read = []
+        message_received.time = round(time.time() * 1000)
+        message_received.t_type = TargetType.FRIEND if message_received.receiver in self.friend_list else TargetType.GROUP
 
         # step 2. give back ack
         tmp_id = message_received.message_id

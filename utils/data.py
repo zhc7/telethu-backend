@@ -79,7 +79,7 @@ class Message(BaseModel):
     message_id: int | str = None  # str if id is temporary
     m_type: MessageType = MessageType.TEXT
     t_type: TargetType = TargetType.OTHER
-    time: float = None  # write by backend
+    time: int = None  # write by backend
     content: str | list | int | GroupData | UserData  # 如果是消息，content 是 str，如果是函数，content 是 list,如果是群加人，这个放群id
     sender: int = None  # 如果是消息，sender 是发送者的 id，如果是函数，sender 是函数的发起者的 id。如果是群加人，这个放拉人的人
     receiver: int | None = (
@@ -88,7 +88,7 @@ class Message(BaseModel):
     info: str | list | dict | None = (
         None  # for message referencing, forwarding and appending info
     )
-    who_read: bool | list | None = None  # list for group chat, bool for personal chat
+    who_read: list | None = []  # list for group chat, bool for personal chat
     status: MessageStatusType | None = MessageStatusType.NORMAL
 
 
