@@ -576,63 +576,42 @@ class ChatConsumer(AsyncWebsocketConsumer):
         handler: Callable[[Message], Any] = {
             MessageType.FUNC_CREATE_GROUP: self.cb_group_create_or_add,
             MessageType.FUNC_ADD_GROUP_MEMBER: self.cb_group_create_or_add,
-            MessageType.FUNC_APPLY_FRIEND: self.send_message_to_front,
             MessageType.FUNC_ACCEPT_FRIEND: self.cb_accept_friend,
-            MessageType.FUNC_REJECT_FRIEND: self.send_message_to_front,
-            MessageType.FUNC_BlOCK_FRIEND: self.send_message_to_front,
-            MessageType.FUNC_UNBLOCK_FRIEND: self.send_message_to_front,
             MessageType.FUNC_DEL_FRIEND: self.cb_del_friend,
-            MessageType.FUNC_READ_MESSAGE: self.send_message_to_front,
             MessageType.FUNC_LEAVE_GROUP: self.cb_group_reduce,
             MessageType.FUNC_CHANGE_GROUP_OWNER: self.cb_group_change_owner,
             MessageType.FUNC_ADD_GROUP_ADMIN: self.cb_add_or_remove_admin,
             MessageType.FUNC_REMOVE_GROUP_ADMIN: self.cb_add_or_remove_admin,
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_group_remove_member,
-            MessageType.FUNC_MESSAGE_ADD_BROADCAST: self.send_message_to_front,
-            MessageType.FUNC_MESSAGE_DEL_BROADCAST: self.send_message_to_front,
-            MessageType.FUNC_RECALL_MEMBER_MESSAGE: self.send_message_to_front,
-            MessageType.FUNC_DELETE_MESSAGE: self.send_message_to_front,
-            MessageType.FUNC_EDIT_MESSAGE: self.send_message_to_front,
-            MessageType.FUNC_RECALL_SELF_MESSAGE: self.send_message_to_front,
-            MessageType.FUNC_EDIT_PROFILE: self.send_message_to_front,
             MessageType.FUNC_DELETE_GROUP: self.cb_delete_group,
-            MessageType.FUNC_CHANGE_GROUP_NAME: self.send_message_to_front,
-        }.get(message.m_type, self.send_message_to_front)
+        }.get(message.m_type)
         await handler(message)
 
     async def cb_del_friend(self, message):
         if str(message.receiver) == str(self.user_id):
             self.friend_list.remove(message.sender)
-        await self.send_message_to_front(message)
 
     async def cb_accept_friend(self, message):
         if str(message.receiver) == str(self.user_id):
             self.friend_list.append(message.sender)
-        await self.send_message_to_front(message)
 
     async def cb_group_create_or_add(self, message: Message):
         await self.fresh_group_info()
-        await self.send_message_to_front(message)
 
     async def cb_group_reduce(self, message: Message):
         await self.fresh_group_info()
-        await self.send_message_to_front(message)
 
     async def cb_group_change_owner(self, message: Message):
         await self.fresh_group_info()
-        await self.send_message_to_front(message)
 
     async def cb_add_or_remove_admin(self, message: Message):
         await self.fresh_group_info()
-        await self.send_message_to_front(message)
 
     async def cb_group_remove_member(self, message: Message):
         await self.fresh_group_info()
-        await self.send_message_to_front(message)
 
     async def cb_delete_group(self, message: Message):
         await self.fresh_group_info()
-        await self.send_message_to_front(message)
 
     async def send_message_to_front(self, message_sent: Message):
         await self.send(
@@ -649,3 +628,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             ),
             routing_key="",  # do not specify routing key
         )
+
+    async def cb_pass_message(self, message: Message):
+        pass
