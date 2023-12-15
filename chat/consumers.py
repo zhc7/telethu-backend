@@ -573,6 +573,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
         await push_message()
+        async def empty(_):
+            pass
+
         handler: Callable[[Message], Any] = {
             MessageType.FUNC_CREATE_GROUP: self.cb_group_create_or_add,
             MessageType.FUNC_ADD_GROUP_MEMBER: self.cb_group_create_or_add,
@@ -584,7 +587,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_REMOVE_GROUP_ADMIN: self.cb_add_or_remove_admin,
             MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_group_remove_member,
             MessageType.FUNC_DELETE_GROUP: self.cb_delete_group,
-        }.get(message.m_type)
+        }.get(message.m_type, empty)
         await handler(message)
 
     async def cb_del_friend(self, message):
