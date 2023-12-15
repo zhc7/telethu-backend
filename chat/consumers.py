@@ -4,12 +4,23 @@ from typing import Callable, Any
 import aio_pika
 from aio_pika.abc import AbstractIncomingMessage
 from channels.generic.websocket import AsyncWebsocketConsumer
+
+from utils.ack_manager import AckManager
+from utils.data import (
+    MessageType,
+    TargetType,
+    Message,
+    ContactsData,
+    UserData,
+    GroupData,
+    FriendType,
+    Ack,
+)
 from utils.db_fun import (
     db_query_group_info,
     db_query_friends,
     db_query_friends_info,
     db_build_group,
-    db_from_id_to_meta,
     db_friendship,
     db_add_member,
     db_friendship_change,
@@ -29,18 +40,6 @@ from utils.db_fun import (
     db_edit_profile,
     db_delete_group,
     db_change_group_name,
-)
-
-from utils.ack_manager import AckManager
-from utils.data import (
-    MessageType,
-    TargetType,
-    Message,
-    ContactsData,
-    UserData,
-    GroupData,
-    FriendType,
-    Ack,
 )
 from utils.uid import globalMessageIdMaker
 
@@ -567,28 +566,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if retry == 0:
                 return
             await self.send_message_to_front(message)
-            print("pushed", message.model_dump())
-            await self.ack_manager.manage(
+            print("pushed", retry, message.model_dump())
+            self.ack_manager.manage(
                 message.message_id, ack_callback, push_message(retry - 1), self.timeout
             )
 
-        await push_message()
         async def empty(_):
             pass
 
         handler: Callable[[Message], Any] = {
-            MessageType.FUNC_CREATE_GROUP: self.cb_group_create_or_add,
-            MessageType.FUNC_ADD_GROUP_MEMBER: self.cb_group_create_or_add,
+            MessageType.FUNC_CREATE_GROUP: self.cb_fresh_group_info,
+            MessageType.FUNC_ADD_GROUP_MEMBER: self.cb_fresh_group_info,
             MessageType.FUNC_ACCEPT_FRIEND: self.cb_accept_friend,
             MessageType.FUNC_DEL_FRIEND: self.cb_del_friend,
-            MessageType.FUNC_LEAVE_GROUP: self.cb_group_reduce,
-            MessageType.FUNC_CHANGE_GROUP_OWNER: self.cb_group_change_owner,
-            MessageType.FUNC_ADD_GROUP_ADMIN: self.cb_add_or_remove_admin,
-            MessageType.FUNC_REMOVE_GROUP_ADMIN: self.cb_add_or_remove_admin,
-            MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_group_remove_member,
-            MessageType.FUNC_DELETE_GROUP: self.cb_delete_group,
+            MessageType.FUNC_LEAVE_GROUP: self.cb_fresh_group_info,
+            MessageType.FUNC_CHANGE_GROUP_OWNER: self.cb_fresh_group_info,
+            MessageType.FUNC_ADD_GROUP_ADMIN: self.cb_fresh_group_info,
+            MessageType.FUNC_REMOVE_GROUP_ADMIN: self.cb_fresh_group_info,
+            MessageType.FUNC_REMOVE_GROUP_MEMBER: self.cb_fresh_group_info,
+            MessageType.FUNC_DELETE_GROUP: self.cb_fresh_group_info,
         }.get(message.m_type, empty)
         await handler(message)
+
+        await push_message()
 
     async def cb_del_friend(self, message):
         if str(message.receiver) == str(self.user_id):
@@ -598,22 +598,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if str(message.receiver) == str(self.user_id):
             self.friend_list.append(message.sender)
 
-    async def cb_group_create_or_add(self, message: Message):
-        await self.fresh_group_info()
-
-    async def cb_group_reduce(self, message: Message):
-        await self.fresh_group_info()
-
-    async def cb_group_change_owner(self, message: Message):
-        await self.fresh_group_info()
-
-    async def cb_add_or_remove_admin(self, message: Message):
-        await self.fresh_group_info()
-
-    async def cb_group_remove_member(self, message: Message):
-        await self.fresh_group_info()
-
-    async def cb_delete_group(self, message: Message):
+    async def cb_fresh_group_info(self, _: Message):
         await self.fresh_group_info()
 
     async def send_message_to_front(self, message_sent: Message):

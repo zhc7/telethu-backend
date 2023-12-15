@@ -28,7 +28,7 @@ class AckManager:
     def __init__(self):
         self.messages: dict[MessageId, ManagingData] = {}
 
-    async def manage(
+    def manage(
         self,
         message_id: MessageId,
         ack_callback: Awaitable,
@@ -56,7 +56,7 @@ class AckManager:
             print("callback registered")
             await asyncio.sleep(timeout)
             data = self.messages[message_id]
-            print("rejecting", data)
+            print("rejecting", data, message_id)
             async with data.lock:
                 if data.status == ManagingStatus.PENDING:
                     data.status = ManagingStatus.REJECTING
@@ -77,7 +77,7 @@ class AckManager:
         if message_id not in self.messages:
             return False
         data = self.messages[message_id]
-        print("acknowledging", data)
+        print("acknowledging", data, message_id)
         async with data.lock:
             if data.status != ManagingStatus.PENDING:
                 return False
