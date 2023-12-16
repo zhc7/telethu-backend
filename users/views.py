@@ -340,7 +340,7 @@ def user_search(req: HttpRequest):
         user_list.extend(name_list)
         user_list.extend(email_list)
     response_data = {
-        "users": [
+        "users": list(set([
             UserData(
                 id=user.id,
                 name=user.username,
@@ -348,7 +348,7 @@ def user_search(req: HttpRequest):
                 email=user.userEmail,
             ).model_dump()
             for user in user_list
-        ]
+        ]))
     }
     return request_success(response_data)
 
