@@ -89,6 +89,7 @@ class Message(BaseModel):
         None  # for message referencing, forwarding and appending info
     )
     who_read: list | None = []  # list for group chat, bool for personal chat
+    who_reply: list[int] | None = None  # list for group chat, bool for personal chat
     status: MessageStatusType | None = MessageStatusType.NORMAL
 
 

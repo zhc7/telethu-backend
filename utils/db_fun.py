@@ -589,3 +589,19 @@ def db_change_group_name(group_id, group_name, user_id):
     group.save()
     group_list = [members.id for members in group.group_members.all()]
     return group_list
+
+@database_sync_to_async
+def db_reply(user_id, reply_id, this_id):
+    user = User.objects.filter(id=user_id).first()
+    if user is None:
+        raise KeyError("user not found")
+    reply = User.objects.filter(id=reply_id).first()
+    if reply is None:
+        raise KeyError("reply not found")
+    this = User.objects.filter(id=this_id).first()
+    if this is None:
+        raise KeyError("this not found")
+    reply.who_reply.add(this_id)
+    reply.save()
+    return None
+

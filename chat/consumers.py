@@ -41,6 +41,7 @@ from utils.db_fun import (
     db_edit_profile,
     db_delete_group,
     db_change_group_name,
+    db_reply,
 )
 from utils.uid import globalMessageIdMaker
 
@@ -543,6 +544,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
 
     async def rcv_handle_common_message(self, message_received: Message):
+        if message_received.info["reference"] is not None:
+            reply_id = message_received.info["reference"]
+            this_id = message_received.message_id
+            try:
+                await db_reply(self.user_id, reply_id, this_id)
+            except KeyError as e:
+                message_received.content = str(e)
+                message_received.t_type = TargetType.ERROR
+                await self.send_message_to_front(message_received)
+                return
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
             md5 = message_received.content

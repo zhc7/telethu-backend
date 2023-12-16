@@ -25,6 +25,7 @@ def load_message(msg):
         receiver=msg.receiver,
         info=info,
         who_read=[user.id for user in msg.who_read.all()],
+        who_reply=[message.message_id for message in msg.who_reply.all()],
     )
     if loaded_message.status and loaded_message.status & MessageStatusType.RECALLED:
         loaded_message.content = "This message has been recalled! "
