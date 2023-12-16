@@ -548,11 +548,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             reply_id = message_received.info["reference"]
             this_id = message_received.message_id
             try:
-                await db_reply(self.user_id, reply_id, this_id)
+                target = await db_reply(self.user_id, reply_id, this_id)
             except KeyError as e:
                 message_received.content = str(e)
                 message_received.t_type = TargetType.ERROR
                 await self.send_message_to_front(message_received)
+            else:
+                message = message_received
+                message.receiver = reply_id
+                message.content = this_id
+                message.sender = self.user_id
+                message.m_type = MessageType.FUNC_REPLAY
+                await self.send_message_to_target(message_received, str(target))
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
             md5 = message_received.content

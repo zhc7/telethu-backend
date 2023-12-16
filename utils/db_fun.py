@@ -605,5 +605,5 @@ def db_reply(user_id, reply_id, this_id):
         raise KeyError("this not found")
     reply.who_reply.add(this_id)
     reply.save()
-    return None
+    return reply.sender
 
