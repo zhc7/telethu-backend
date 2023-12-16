@@ -599,6 +599,8 @@ def db_reply(user_id, reply_id, this_id):
     if reply is None:
         raise KeyError("reply not found")
     this = User.objects.filter(id=this_id).first()
+    if this.receiver != reply.receiver and reply.receiver != user_id and reply.sender != user_id:
+        raise KeyError("you cannot reply this message")
     if this is None:
         raise KeyError("this not found")
     reply.who_reply.add(this_id)

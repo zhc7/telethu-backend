@@ -544,7 +544,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
 
     async def rcv_handle_common_message(self, message_received: Message):
-        if message_received.info["reference"] is not None:
+        if message_received.info["reference"] is not None and message_received.info["reference"] != -1:
             reply_id = message_received.info["reference"]
             this_id = message_received.message_id
             try:
@@ -553,7 +553,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message_received.content = str(e)
                 message_received.t_type = TargetType.ERROR
                 await self.send_message_to_front(message_received)
-                return
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
             md5 = message_received.content
