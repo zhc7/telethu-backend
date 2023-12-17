@@ -395,7 +395,8 @@ def edit_profile(req: HttpRequest):
     body = json.loads(req.body)
     new_name = body.get("name")
     new_email = body.get("email")
-    new_password = body.get("password")
+    new_password = body.get("new_password")
+    old_password = body.get("old_password")
     if new_email:
         if (
             User.objects.filter(userEmail=new_email).exists()
@@ -406,6 +407,10 @@ def edit_profile(req: HttpRequest):
     if new_name:
         user.username = new_name
     if new_password:
+        if not old_password:
+            return request_failed(2, "Old password not provided", 403)
+        if not user.password == hash_string_with_sha256(old_password, num_iterations=5):
+            return request_failed(2, "Wrong password", 403)
         user.password = hash_string_with_sha256(new_password, num_iterations=5)
     user.save()
     return JsonResponse(
