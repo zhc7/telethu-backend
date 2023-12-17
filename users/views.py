@@ -119,8 +119,10 @@ def register(req: HttpRequest):
         password=hashed_password,
         userEmail=user_email,
     )
+    if email_sender(req, user_email, user.id) == 0:
+        return request_failed(2, "Invalid email rejected by the email sender", status_code=422)
     user.save()
-    email_sender(req, user_email, user.id)
+
     return request_success()
 
 
