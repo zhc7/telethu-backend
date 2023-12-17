@@ -44,6 +44,8 @@ def login(req: HttpRequest):
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
+    if user.userEmail.endswith("is_deleted"):
+        return request_failed(2, "User is deleted", status_code=403)
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=403)
