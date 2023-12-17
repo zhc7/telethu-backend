@@ -9,7 +9,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
-
+from datetime import datetime
 from users.email import email_sender
 from users.models import User, GroupList
 from utils.data import UserData, GroupData
@@ -371,6 +371,9 @@ def delete_user(req: HttpRequest):
     else:
         session.user_id = None
         user.userEmail = user.userEmail + "is_deleted"
+        current_time = datetime.now()
+        time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")
+        user.userEmail = user.userEmail + time_string
         user.is_deleted = True
         user.save()
         return request_success()
