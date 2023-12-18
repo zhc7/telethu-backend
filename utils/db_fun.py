@@ -182,7 +182,7 @@ def db_add_member(group_id, add_members, self_user_id):
             real_add_list.append(member)
             group.group_members.add(member)
             # delete they in candidate list
-            if member in group.group_candidate_members.all():
+            if group.group_candidate_members.filter(id=member).exists():
                 group.group_candidate_members.remove(member)
         else:  # user is not group owner or admin
             print("not admin")
@@ -194,7 +194,7 @@ def db_add_member(group_id, add_members, self_user_id):
                 user2=self_user_id, user1=member
             ).exists()
             ):
-                print("not friends. ")
+                print("not friends.")
                 continue
             if member not in group.group_candidate_members.all():
                 group.group_candidate_members.add(member)
