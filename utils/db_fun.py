@@ -430,7 +430,10 @@ def db_recall_member_message(message_id, group_id, user_id):
     if user_id == group.group_owner.id:
         message.status = message.status | MessageStatusType.RECALLED
         message.save()
-        return
+        group_member = []
+        for member in group.group_members.all():
+            group_member.append(member.id)
+        return group_member
     elif user_id in group.group_admin.all():
         if sender_id == group.group_owner.id:
             raise KeyError("you cannot recall owner's message")
@@ -439,7 +442,10 @@ def db_recall_member_message(message_id, group_id, user_id):
         else:
             message.status = message.status | MessageStatusType.RECALLED
             message.save()
-            return
+            group_member = []
+            for member in group.group_members.all():
+                group_member.append(member.id)
+            return group_member
     else:
         raise KeyError("you are not the owner or admin")
 
