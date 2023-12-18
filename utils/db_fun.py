@@ -601,10 +601,10 @@ def db_reply(user_id, reply_id, this_id):
     user = User.objects.filter(id=user_id).first()
     if user is None:
         raise KeyError("user not found")
-    reply = MessageList.objects.filter(id=reply_id).first()
+    reply = MessageList.objects.filter(message_id=reply_id).first()
     if reply is None:
         raise KeyError("reply not found")
-    this = MessageList.objects.filter(id=this_id).first()
+    this = MessageList.objects.filter(message_id=this_id).first()
     if this is None:
         raise KeyError("this not found")
     if this.receiver != reply.receiver and reply.receiver != user_id and reply.sender != user_id:
