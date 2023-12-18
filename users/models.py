@@ -64,7 +64,7 @@ class MessageList(models.Model):
     receiver = models.IntegerField(blank=False, null=True)
     info = models.CharField(max_length=256, default="", blank=True, null=True)
     who_read = models.ManyToManyField(User, related_name="who_read")
-    who_reply = models.ManyToManyField('self',symmetrical=False,related_name='related_messages')
+    who_reply = models.ManyToManyField('self',symmetrical=False,related_name='referenced_by')
     deleted_users = models.ManyToManyField(User, related_name="deleted_users")
     status = models.IntegerField(
         default=MessageStatusType.NORMAL,
@@ -80,6 +80,7 @@ class GroupList(models.Model):
         default="22933c1646d1f0042e39d7471e42f33b",
     )
     group_members = models.ManyToManyField(User, related_name="group_members")
+    group_candidate_members = models.ManyToManyField(User, related_name="group_candidate_members")
     # # 群主
     group_owner = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="group_owner", null=True
