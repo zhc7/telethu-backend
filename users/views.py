@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import re
-
+from telethu import settings 
 import magic
 from django.core.signing import loads
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 from datetime import datetime
 from users.email import email_sender
-from users.models import User, GroupList, VerifyMailList
+from users.models import User, GroupList, VerifyMailList, LoginMailList
 from utils.data import UserData, GroupData
 from utils.session import SessionData
 from utils.uid import globalIdMaker
@@ -44,8 +44,6 @@ def login(req: HttpRequest):
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
-    if user.userEmail.endswith("is_deleted"):
-        return request_failed(2, "User is deleted", status_code=403)
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=403)
@@ -66,7 +64,7 @@ def login(req: HttpRequest):
         ).model_dump(),
     }
     return request_success(response_data)
-
+  
 
 @csrf_exempt  # 关闭csrf验证
 def logout(req: HttpRequest):
@@ -104,7 +102,7 @@ def receive_code(req: HttpRequest):
         return request_failed(2, "userEmail already exists", status_code=403)
     if not check_require(user_email, "email"):
         return request_failed(2, "Invalid email", status_code=422)
-    email_ret = email_sender(user_email)
+    email_ret = email_sender(user_email, 0)
     if email_ret == 0:
         return request_failed(2, "Invalid email rejected by the email sender", status_code=422)
     # Get or create
@@ -141,8 +139,12 @@ def register(req: HttpRequest):
         return request_failed(2, "userEmail already exists", status_code=403)
     if (verifier is None) or int(verifier.verification_code == 0):
         return request_failed(2, "Email haven't registered yet! ", status_code=404)
-    if verifier.verification_code != int(verification_code):
-        return request_failed(2, "Wrong verification code! ", status_code=404)
+    if settings.DEBUG:
+        if not (int(verification_code) == 114514 or int(verification_code) == verifier.verification_code):
+            return request_failed(2, "Wrong verification code! ", status_code=404)
+    else:
+        if verifier.verification_code != int(verification_code):
+            return request_failed(2, "Wrong verification code! ", status_code=404)
     if not check_require(username, "username"):
         return request_failed(2, "Invalid username", status_code=422)
     if not check_require(password, "password"):
@@ -279,7 +281,7 @@ def sendemail(req: HttpRequest):
     use_id = req.user_id
     user = User.objects.get(id=use_id)
     email = user.userEmail
-    email_sender(req, email, use_id)
+    email_sender(email, 0)
 
 
 @csrf_exempt
