@@ -146,7 +146,9 @@ def register(req: HttpRequest):
         return request_failed(2, "userEmail already exists", status_code=403)
     if (verifier is None) or int(verifier.verification_code == 0):
         return request_failed(2, "Email haven't registered yet! ", status_code=404)
-    if time.time() - (verifier.verification_code / 1000000) > 300:
+    print("now", time.time())
+    print("verify at: ", verifier.verification_time / 1000000)
+    if time.time() - (verifier.verification_time / 1000000) > 300:
         verifier.verification_code = 0
         verifier.verification_time = 0
         verifier.save()
@@ -467,7 +469,12 @@ def edit_profile(req: HttpRequest):
             and User.objects.get(userEmail=new_email).id != user.id
         ):
             return request_failed(2, "Email duplicated", 403)
-        user.userEmail = new_email
+        # TODO: verification
+        if User.objects.filter(userEmail=new_email, is_deleted=False).exists():
+            return request_failed(2, "userEmail already exists", status_code=403)
+        if not check_require(new_email, "email"):
+            return request_failed(2, "Invalid email", status_code=422)
+        email_ret = email_sender(new_email, 2)
     if new_name:
         user.username = new_name
     if new_password:
@@ -485,6 +492,38 @@ def edit_profile(req: HttpRequest):
             "avatar": user.avatar,
         }
     )
+    
+@csrf_exempt
+def update_email(req: HttpRequest):
+    body = json.loads(req.body)
+    oldEmail = require(
+        body, "oldEmail", "string", err_msg="Missing or error type of [oldEmail]"
+    )
+    newEmail = require(
+        body, "newEmail", "string", err_msg="Missing or error type of [newEmail]"
+    )
+    verification_code = require(
+        body,
+        "verification_code",
+        "string",
+        err_msg="Missing or error type of [verification_code]",
+    )
+    verifier = VerifyMailList.objects.filter(email=oldEmail).first()
+    if verifier is None:
+        return request_failed(2, "Not in verificaition list!", status_code=404)
+ 
+    if User.objects.filter(userEmail=newEmail).exists():
+        return request_failed(2, "New email already exists! ", status_code=404)
+    user = User.objects.get(userEmail=oldEmail)
+    if user is None:
+        return request_failed(2, "No user with old email found! ", status_code=404)
+    verifier.email = newEmail
+    verifier.verification_code = 0
+    verifier.verification_time = 0
+    verifier.save()
+    user.userEmail = newEmail
+    user.save()
+    return request_success()
 
 
 @csrf_exempt

@@ -19,6 +19,7 @@ urlpatterns = [
     path("delete_user", views.delete_user, name="delete_user"),
     path("block_user_list", views.block_user_list, name="block_user_list"),
     path("edit_profile", views.edit_profile, name="edit_profile"),
+    path("update_email", views.update_email, name="update_email"),
     path("email_exists/<str:query_email>", views.email_exists, name="email_exists"),
     path("group_candidates/<int:group_id>", views.group_candidates, name="group_candidates"),
 ]
