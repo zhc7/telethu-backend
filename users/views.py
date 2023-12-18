@@ -343,16 +343,20 @@ def user_search(req: HttpRequest):
     else:
         user_list.extend(name_list)
         user_list.extend(email_list)
+    user_data = []
+    for user in user_list: # 去重
+        if user not in user_data:
+            user_data.append(user)
     response_data = {
-        "users": list(set([
+        "users": list([
             UserData(
                 id=user.id,
                 name=user.username,
                 avatar=user.avatar,
                 email=user.userEmail,
             ).model_dump()
-            for user in user_list
-        ]))
+            for user in user_data
+        ])
     }
     return request_success(response_data)
 
