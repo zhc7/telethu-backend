@@ -10,8 +10,10 @@ def email_sender(email, type):
     subject = "Identity Authorization"
     if type == 0:   
         message = f"Welcome to Telethu! To authorize your your identity, please type in the following verification code: {random_six_digit_number}"
-    else:
+    elif type == 1:
         message = f"Welcome to Telethu! Your verification code for logging in is: {random_six_digit_number}"
+    elif type == 2:
+        message = f"Email modification succeed! Your verification code for logging in is: {random_six_digit_number}"
     from_email = "telethu@126.com"
     recipient_list = [email]
     print("ready to send mail! ")
