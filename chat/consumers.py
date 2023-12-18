@@ -580,7 +580,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
 
     async def rcv_handle_common_message(self, message_received: Message):
-        if message_received.info["reference"] is not None and message_received.info["reference"] != -1:
+        if "reference" in message_received.info and message_received.info["reference"] != -1:
             reply_id = message_received.info["reference"]
             this_id = message_received.message_id
             try:
