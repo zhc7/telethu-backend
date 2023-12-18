@@ -488,7 +488,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_id = message.content
         group_id = message.receiver
         try:
-            group_member = await db_recall_member_message(message_id,group_id, message_id, self.user_id)
+            group_member = await db_recall_member_message(message_id,group_id, self.user_id)
         except KeyError as e:
             message.content = str(e)
             message.t_type = TargetType.ERROR
