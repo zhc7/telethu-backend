@@ -90,3 +90,9 @@ class GroupList(models.Model):
     group_top_message = models.ManyToManyField(
         MessageList, related_name="group_top_message"
     )
+
+class VerifyMailList(models.Model):
+    # 等待验证的邮箱
+    email = models.EmailField(unique=True, max_length=128)
+    # 对应的验证码
+    verification_code = models.IntegerField(default=0)

@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 from datetime import datetime
 from users.email import email_sender
-from users.models import User, GroupList
+from users.models import User, GroupList, VerifyMailList
 from utils.data import UserData, GroupData
 from utils.session import SessionData
 from utils.uid import globalIdMaker
@@ -93,12 +93,7 @@ def register(req: HttpRequest):
         return BAD_METHOD
     body = json.loads(req.body)
     try:
-        username = require(
-            body, "userName", "string", err_msg="Missing or error type of [userName]"
-        )
-        password = require(
-            body, "password", "string", err_msg="Missing or error type of [password]"
-        )
+        # Only receive email for verification
         user_email = require(
             body, "userEmail", "string", err_msg="Missing or error type of [email]"
         )
@@ -107,6 +102,45 @@ def register(req: HttpRequest):
         return request_failed(2, error_message, status_code=status_code)
     if User.objects.filter(userEmail=user_email, is_deleted=False).exists():
         return request_failed(2, "userEmail already exists", status_code=403)
+    if not check_require(user_email, "email"):
+        return request_failed(2, "Invalid email", status_code=422)
+    email_ret = email_sender(user_email)
+    if email_ret == 0:
+        return request_failed(2, "Invalid email rejected by the email sender", status_code=422)
+    # Get or create
+    verify_maillist, created = VerifyMailList.objects.get_or_create(email=user_email)
+    verify_maillist.verification_code = email_ret
+    verify_maillist.save()
+
+    return request_success()
+
+@csrf_exempt  # 允许跨域,便于测试
+def effective_email(req: HttpRequest):
+    if req.method != "POST":
+        return BAD_METHOD
+    body = json.loads(req.body)
+    try:
+        username = require(
+            body, "userName", "string", err_msg="Missing or error type of [userName]"
+        )
+        password = require(
+            body, "password", "string", err_msg="Missing or error type of [password]"
+        )
+        # Only receive email for verification
+        user_email = require(
+            body, "userEmail", "string", err_msg="Missing or error type of [email]"
+        )
+        verification_code = require(
+            body, "verification_code", "string", err_msg="Missing or error type of [verification_code]"
+        )
+    except KeyError as e:
+        error_message, status_code = str(e.args[0]), int(e.args[1])
+        return request_failed(2, error_message, status_code=status_code)
+    verifier = VerifyMailList.objects.filter(email=user_email).first()
+    if (verifier is None) or (verifier.verification_code == 0):
+        return request_failed(2, "Email haven't registered yet! ", status_code=404)
+    if verifier.verification_code != verification_code:
+        return request_failed(2, "Wrong verification code! ", status_code=404)
     if not check_require(username, "username"):
         return request_failed(2, "Invalid username", status_code=422)
     if not check_require(password, "password"):
@@ -121,12 +155,7 @@ def register(req: HttpRequest):
         password=hashed_password,
         userEmail=user_email,
     )
-    if email_sender(req, user_email, user.id) == 0:
-        return request_failed(2, "Invalid email rejected by the email sender", status_code=422)
     user.save()
-
-    return request_success()
-
 
 @require_GET
 def get_user_info(req: HttpRequest, user_id: int):
@@ -370,12 +399,18 @@ def delete_user(req: HttpRequest):
         return request_failed(2, "Deleting a user that doesn't exist!", status_code=404)
     else:
         session.user_id = None
+        email = user.userEmail
         user.userEmail = user.userEmail + "is_deleted"
         current_time = datetime.now()
         time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")
         user.userEmail = user.userEmail + time_string
         user.is_deleted = True
         user.save()
+        verifier = VerifyMailList.objects.get(email=email)
+        if verifier is None:
+            return request_failed(2, "Not in verificaition list!", status_code=404)
+        verifier.verification_code = 0
+        verifier.save()
         return request_success()
 
 
