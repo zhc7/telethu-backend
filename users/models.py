@@ -96,3 +96,9 @@ class VerifyMailList(models.Model):
     email = models.EmailField(unique=True, max_length=128)
     # 对应的验证码
     verification_code = models.IntegerField(default=0)
+    
+class LoginMailList(models.Model):
+    # 等待验证的邮箱
+    email = models.EmailField(unique=True, max_length=128)
+    # 对应的验证码
+    verification_code = models.IntegerField(default=0)
