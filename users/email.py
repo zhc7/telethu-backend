@@ -12,4 +12,7 @@ def email_sender(req, email, user_id):
     from_email = "telethu@126.com"
     recipient_list = [email]
     print("ready to send mail! ")
-    send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+    try:
+        send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+    except:
+        return 0
