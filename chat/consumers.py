@@ -293,6 +293,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def rcv_block_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
+        if friend_id == self.user_id:
+            message.content = "You can't block yourself"
+            message.t_type = TargetType.ERROR
+            await self.send_message_to_front(message)
+            return
         friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if friendship_now == FriendType.already_friend:
             message.content = "Success"
