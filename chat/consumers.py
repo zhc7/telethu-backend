@@ -94,7 +94,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print("connected!")
         await self.pseudo_start_consuming(user_id)
 
-
     async def pseudo_start_consuming(self, user_id: int):
         exchange_name = "user_" + str(self.user_id)  # name it after user_id
         self.self_exchange = await self.channel.declare_exchange(
@@ -171,7 +170,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_received.sender = self.user_id
         message_received.who_read = []
         message_received.time = round(time.time() * 1000)
-        message_received.t_type = TargetType.FRIEND if message_received.receiver in self.friend_list else TargetType.GROUP
+        message_received.t_type = (
+            TargetType.FRIEND
+            if message_received.receiver in self.friend_list
+            else TargetType.GROUP
+        )
 
         # step 2. give back ack
         tmp_id = message_received.message_id
@@ -274,7 +277,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         group_id = message.receiver
         group_add_members = message.content
         try:
-            add_list, group_list = await db_add_member(
+            real_add_list, candidate_add_list, group_inform_list = await db_add_member(
                 group_id, group_add_members, self.user_id
             )
         except KeyError as e:
@@ -282,8 +285,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return None
-        message.content = add_list
-        for member in group_list:
+        if len(real_add_list) > 0:  # if real add, send message to all group members
+            message.content = real_add_list
+        else:  # if not real add, send message to owner and admin
+            message.content = candidate_add_list
+        for member in group_inform_list:
             await self.send_message_to_target(message, str(member))
 
     async def rcv_apply_friend(self, message: Message):
@@ -488,7 +494,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_id = message.content
         group_id = message.receiver
         try:
-            group_member = await db_recall_member_message(message_id,group_id, self.user_id)
+            group_member = await db_recall_member_message(
+                message_id, group_id, self.user_id
+            )
         except KeyError as e:
             message.content = str(e)
             message.t_type = TargetType.ERROR
@@ -580,7 +588,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
 
     async def rcv_handle_common_message(self, message_received: Message):
-        if "reference" in message_received.info and message_received.info["reference"] != -1:
+        if (
+            "reference" in message_received.info
+            and message_received.info["reference"] != -1
+        ):
             reply_id = message_received.info["reference"]
             this_id = message_received.message_id
             try:

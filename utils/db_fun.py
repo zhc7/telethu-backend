@@ -1,9 +1,6 @@
 import json
 import time
-from datetime import timedelta
-
 from channels.db import database_sync_to_async
-from django.utils import timezone
 
 from files.models import Multimedia
 from users.models import Friendship, GroupList, User, MessageList
@@ -147,7 +144,8 @@ def db_add_member(group_id, add_members, self_user_id):
     if user not in group.group_members.all():
         raise KeyError("you are not in group")
     # 加好友列表
-    add_list = []
+    real_add_list = []
+    candidate_add_list = []
     for member in add_members:
         # 判断加的人存在吗
         if User.objects.filter(id=member).exists():
@@ -167,15 +165,31 @@ def db_add_member(group_id, add_members, self_user_id):
                             user2=self_user_id, user1=member
                         ).exists()
                     ):
-                        add_list.append(member)
-                        group.group_members.add(member)
+                        if (
+                            group.group_owner.id == self_user_id
+                            or self_user_id in group.group_admin.all()
+                        ):  # user is group owner or admin
+                            real_add_list.append(member)
+                            group.group_members.add(member)
+                            # delete they in candidate list
+                            if member in group.group_candidate_members.all():
+                                group.group_candidate_members.remove(member)
+                        else:  # user is not group owner or admin
+                            if member not in group.group_candidate_members.all():
+                                group.group_candidate_members.add(member)
+                            candidate_add_list.append(member)
     group.save()
-    if len(add_list) == 0:
+    if len(real_add_list) == 0 and len(candidate_add_list) == 0:
         raise KeyError("no one can be added")
     id_list = []
-    for member in group.group_members.all():
-        id_list.append(member.id)
-    return add_list, id_list
+    if len(real_add_list) != 0:  # if real add, inform all members
+        for member in group.group_members.all():
+            id_list.append(member.id)
+    else:  # if candidate add, inform owner and admin
+        id_list.append(group.group_owner.id)
+        for member in group.group_admin.all():
+            id_list.append(member.id)
+    return real_add_list, candidate_add_list, id_list
 
 
 @database_sync_to_async
@@ -596,6 +610,7 @@ def db_change_group_name(group_id, group_name, user_id):
     group_list = [members.id for members in group.group_members.all()]
     return group_list
 
+
 @database_sync_to_async
 def db_reply(user_id, reply_id, this_id):
     user = User.objects.filter(id=user_id).first()
@@ -607,9 +622,12 @@ def db_reply(user_id, reply_id, this_id):
     this = MessageList.objects.filter(message_id=this_id).first()
     if this is None:
         raise KeyError("this not found")
-    if this.receiver != reply.receiver and reply.receiver != user_id and reply.sender != user_id:
+    if (
+        this.receiver != reply.receiver
+        and reply.receiver != user_id
+        and reply.sender != user_id
+    ):
         raise KeyError("you cannot reply this message")
     reply.who_reply.add(this_id)
     reply.save()
     return reply.sender
-

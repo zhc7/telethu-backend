@@ -106,13 +106,16 @@ def receive_code(req: HttpRequest):
         return request_failed(2, "Invalid email", status_code=422)
     email_ret = email_sender(user_email)
     if email_ret == 0:
-        return request_failed(2, "Invalid email rejected by the email sender", status_code=422)
+        return request_failed(
+            2, "Invalid email rejected by the email sender", status_code=422
+        )
     # Get or create
     verify_maillist, created = VerifyMailList.objects.get_or_create(email=user_email)
     verify_maillist.verification_code = email_ret
     verify_maillist.save()
 
     return request_success()
+
 
 @csrf_exempt  # 允许跨域,便于测试
 def register(req: HttpRequest):
@@ -131,7 +134,10 @@ def register(req: HttpRequest):
             body, "userEmail", "string", err_msg="Missing or error type of [email]"
         )
         verification_code = require(
-            body, "verification_code", "string", err_msg="Missing or error type of [verification_code]"
+            body,
+            "verification_code",
+            "string",
+            err_msg="Missing or error type of [verification_code]",
         )
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
@@ -159,6 +165,7 @@ def register(req: HttpRequest):
     )
     user.save()
     return request_success()
+
 
 @require_GET
 def get_user_info(req: HttpRequest, user_id: int):
@@ -376,19 +383,21 @@ def user_search(req: HttpRequest):
         user_list.extend(name_list)
         user_list.extend(email_list)
     user_data = []
-    for user in user_list: # 去重
+    for user in user_list:  # 去重
         if user not in user_data:
             user_data.append(user)
     response_data = {
-        "users": list([
-            UserData(
-                id=user.id,
-                name=user.username,
-                avatar=user.avatar,
-                email=user.userEmail,
-            ).model_dump()
-            for user in user_data
-        ])
+        "users": list(
+            [
+                UserData(
+                    id=user.id,
+                    name=user.username,
+                    avatar=user.avatar,
+                    email=user.userEmail,
+                ).model_dump()
+                for user in user_data
+            ]
+        )
     }
     return request_success(response_data)
 
@@ -476,3 +485,23 @@ def email_exists(req: HttpRequest, query_email: str):
         return BAD_METHOD
     exists = User.objects.filter(userEmail=query_email).exists()
     return HttpResponse(exists)
+
+
+@csrf_exempt
+def group_candidates(req: HttpRequest, group_id: int):
+    if req.method != "GET":
+        return BAD_METHOD
+    user = User.objects.get(id=req.user_id)
+    if user is None:
+        return request_failed(2, "User not found!", status_code=404)
+    group = GroupList.objects.get(group_id=group_id)
+    if group is None:
+        return request_failed(2, "Group not found!", status_code=404)
+    # if you are not the owner or admin, you can't get the candidates
+    if user != group.group_owner and user not in group.group_admin.all():
+        return request_failed(2, "You are not the owner or admin!", status_code=403)
+    candidates = []
+    for candidate in group.group_candidate_members.all():
+        candidates.append(candidate.id)
+    response = {"candidates": candidates}
+    return JsonResponse(response)
