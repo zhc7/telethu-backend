@@ -430,7 +430,10 @@ def db_recall_member_message(message_id, group_id, user_id):
     if user_id == group.group_owner.id:
         message.status = message.status | MessageStatusType.RECALLED
         message.save()
-        return
+        group_member = []
+        for member in group.group_members.all():
+            group_member.append(member.id)
+        return group_member
     elif user_id in group.group_admin.all():
         if sender_id == group.group_owner.id:
             raise KeyError("you cannot recall owner's message")
@@ -439,7 +442,10 @@ def db_recall_member_message(message_id, group_id, user_id):
         else:
             message.status = message.status | MessageStatusType.RECALLED
             message.save()
-            return
+            group_member = []
+            for member in group.group_members.all():
+                group_member.append(member.id)
+            return group_member
     else:
         raise KeyError("you are not the owner or admin")
 
@@ -595,14 +601,14 @@ def db_reply(user_id, reply_id, this_id):
     user = User.objects.filter(id=user_id).first()
     if user is None:
         raise KeyError("user not found")
-    reply = User.objects.filter(id=reply_id).first()
+    reply = MessageList.objects.filter(id=reply_id).first()
     if reply is None:
         raise KeyError("reply not found")
-    this = User.objects.filter(id=this_id).first()
-    if this.receiver != reply.receiver and reply.receiver != user_id and reply.sender != user_id:
-        raise KeyError("you cannot reply this message")
+    this = MessageList.objects.filter(id=this_id).first()
     if this is None:
         raise KeyError("this not found")
+    if this.receiver != reply.receiver and reply.receiver != user_id and reply.sender != user_id:
+        raise KeyError("you cannot reply this message")
     reply.who_reply.add(this_id)
     reply.save()
     return reply.sender

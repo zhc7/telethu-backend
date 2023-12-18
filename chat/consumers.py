@@ -82,6 +82,37 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # await self.rcv_send_meta_info()
         await self.rcv_send_init_id()
 
+    async def pseudo_connect(self, user_id: int):
+        # websocket connect
+        # get user id
+        self.user_id = user_id
+        print("user id we get in connect is: ", self.user_id)
+        # rabbitmq connect
+        self.rabbitmq_connection = await aio_pika.connect_robust("amqp://localhost")
+        self.channel = await self.rabbitmq_connection.channel()
+        # start consuming
+        print("connected!")
+        await self.pseudo_start_consuming(user_id)
+
+
+    async def pseudo_start_consuming(self, user_id: int):
+        exchange_name = "user_" + str(self.user_id)  # name it after user_id
+        self.self_exchange = await self.channel.declare_exchange(
+            # use fanout exchange to broadcast to all user's queue
+            exchange_name,
+            type="fanout",
+        )
+        # get friend list
+        self.friend_list = await db_query_friends(self.user_id)
+        # get group list
+        await self.fresh_group_info()
+        # build queue and bind to exchange to receive message from rabbitmq server
+        queue_name_receive = str(user_id)
+        queue_receive = await self.channel.declare_queue(queue_name_receive)
+        await queue_receive.bind(self.self_exchange)
+        # start consuming
+        await queue_receive.consume(self.callback)
+
     async def start_consuming(self):
         exchange_name = "user_" + str(self.user_id)  # name it after user_id
         self.self_exchange = await self.channel.declare_exchange(
@@ -457,13 +488,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_id = message.content
         group_id = message.receiver
         try:
-            message = await db_recall_member_message(group_id, message_id)
+            group_member = await db_recall_member_message(message_id,group_id, self.user_id)
         except KeyError as e:
             message.content = str(e)
             message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
-        for member in self.group_members[group_id]:
+        for member in group_member:
             await self.send_message_to_target(message, str(member))
 
     async def rcv_delete_message(self, message: Message):
@@ -549,7 +580,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
 
     async def rcv_handle_common_message(self, message_received: Message):
-        if message_received.info["reference"] is not None and message_received.info["reference"] != -1:
+        if "reference" in message_received.info and message_received.info["reference"] != -1:
             reply_id = message_received.info["reference"]
             this_id = message_received.message_id
             try:

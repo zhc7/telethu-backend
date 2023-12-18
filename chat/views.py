@@ -26,6 +26,7 @@ def load_message(msg):
         info=info,
         who_read=[user.id for user in msg.who_read.all()],
         who_reply=[message.message_id for message in msg.who_reply.all()],
+        status=msg.status
     )
     if loaded_message.status and loaded_message.status & MessageStatusType.RECALLED:
         loaded_message.content = "This message has been recalled! "
@@ -202,4 +203,5 @@ def get_message(request, message_id):
     if message is None:
         return request_failed(code=403, info="Message not found! ")
     message_response = load_message(message)
+    print("another checkpoint: ", message_response.content)
     return request_success(message_response.model_dump())
