@@ -236,6 +236,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             MessageType.FUNC_EDIT_PROFILE: self.rcv_edit_profile,
             MessageType.FUNC_DELETE_GROUP: self.rcv_delete_group,
             MessageType.FUNC_CHANGE_GROUP_NAME: self.rcv_change_group_name,
+            MessageType.FUNC_REJECT_CANDIDATE: self.rcv_reject_candidate,
         }.get(message_received.m_type, self.rcv_handle_common_message)
         await handler(message_received)
 

@@ -220,8 +220,8 @@ def db_reject_candidate(group_id: int, rejected_member: int, self_user_id: int):
     if group is None:
         raise KeyError("group not exist")
     if (
-            group.group_owner.id == self_user_id
-            or self_user_id in group.group_admin.all()
+            not (group.group_owner.id == self_user_id
+            or self_user_id in group.group_admin.all())
     ):
         raise KeyError("You are not the administrator")
     if not group.group_candidate_members.filter(id=rejected_member).exists():

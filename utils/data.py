@@ -41,6 +41,7 @@ class MessageType(enum.IntEnum):
     FUNC_DELETE_GROUP = 30
     FUNC_CHANGE_GROUP_NAME = 31
     FUNC_REPLY = 32
+    FUNC_REJECT_CANDIDATE = 33
 
 
 class TargetType(enum.IntEnum):
