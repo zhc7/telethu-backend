@@ -215,6 +215,27 @@ def db_add_member(group_id, add_members, self_user_id):
 
 
 @database_sync_to_async
+def db_reject_candidate(group_id: int, rejected_member: int, self_user_id: int):
+    group = GroupList.objects.filter(group_id=group_id).first()
+    if group is None:
+        raise KeyError("group not exist")
+    if (
+            group.group_owner.id == self_user_id
+            or self_user_id in group.group_admin.all()
+    ):
+        raise KeyError("You are not the administrator")
+    if not group.group_candidate_members.filter(id=rejected_member).exists():
+        raise KeyError("Not a candidate")
+    group.group_candidate_members.remove(rejected_member)
+    group.save()
+    id_list = []
+    id_list.append(group.group_owner.id)
+    for member in group.group_admin.all():
+        id_list.append(member.id)
+    return id_list
+
+
+@database_sync_to_async
 def db_change_group_owner(group_id, old_owner, new_owner):
     group = GroupList.objects.filter(group_id=group_id).first()
     if group is None:

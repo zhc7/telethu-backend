@@ -24,6 +24,7 @@ from utils.db_fun import (
     db_build_group,
     db_friendship,
     db_add_member,
+    db_reject_candidate,
     db_friendship_change,
     db_create_multimedia,
     db_query_group,
@@ -245,7 +246,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_front(message)
             return None
         if len(message.content.members) == 0 and not isinstance(
-            message.content.members[0], int
+                message.content.members[0], int
         ):
             message.content = "Wrong format"
             message.t_type = TargetType.ERROR
@@ -292,14 +293,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         for member in group_inform_list:
             await self.send_message_to_target(message, str(member))
 
+    async def rcv_reject_candidate(self, message: Message):
+        group_id = message.receiver
+        rejected_member = message.content
+        try:
+            group_inform_list = await db_reject_candidate(
+                group_id, rejected_member, self.user_id
+            )
+        except KeyError as e:
+            message.content = str(e)
+            message.t_type = TargetType.ERROR
+            await self.send_message_to_front(message)
+            return None
+        for member in group_inform_list:
+            await self.send_message_to_target(message, str(member))
+
     async def rcv_apply_friend(self, message: Message):
         friend_id = message.receiver
         message.sender = self.user_id
         friendship_now, message.content = await db_friendship(self.user_id, friend_id)
         if (
-            friendship_now == FriendType.relationship_not_exist
-            or friendship_now == FriendType.already_been_reject
-            or friendship_now == FriendType.already_reject_friend
+                friendship_now == FriendType.relationship_not_exist
+                or friendship_now == FriendType.already_been_reject
+                or friendship_now == FriendType.already_reject_friend
         ):
             message.content = "Success"
             await self.send_message_to_target(message, str(friend_id))
@@ -589,8 +605,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def rcv_handle_common_message(self, message_received: Message):
         if (
-            "reference" in message_received.info
-            and message_received.info["reference"] != -1
+                "reference" in message_received.info
+                and message_received.info["reference"] != -1
         ):
             reply_id = message_received.info["reference"]
             this_id = message_received.message_id
