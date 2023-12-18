@@ -148,38 +148,60 @@ def db_add_member(group_id, add_members, self_user_id):
     candidate_add_list = []
     for member in add_members:
         # 判断加的人存在吗
-        if User.objects.filter(id=member).exists():
+        if not User.objects.filter(id=member).exists():
+            continue
             # 判断加的人是不是自己
-            if member != self_user_id:
-                # 判断加的人是不是已经在群里了
-                if (
-                    User.objects.filter(id=member).first()
-                    not in group.group_members.all()
-                ):
-                    # 判断加的人是不是好友
-                    if (
-                        Friendship.objects.filter(
-                            user1=self_user_id, user2=member
-                        ).exists()
-                        or Friendship.objects.filter(
-                            user2=self_user_id, user1=member
-                        ).exists()
-                    ):
-                        if (
-                            group.group_owner.id == self_user_id
-                            or self_user_id in group.group_admin.all()
-                        ):  # user is group owner or admin
-                            real_add_list.append(member)
-                            group.group_members.add(member)
-                            # delete they in candidate list
-                            if member in group.group_candidate_members.all():
-                                group.group_candidate_members.remove(member)
-                        else:  # user is not group owner or admin
-                            if member not in group.group_candidate_members.all():
-                                group.group_candidate_members.add(member)
-                            candidate_add_list.append(member)
+        if member == self_user_id:
+            print("Adding self")
+            continue
+            # 判断加的人是不是已经在群里了
+        if (
+            User.objects.filter(id=member).first()
+            in group.group_members.all()
+        ):
+            print("Already in group")
+            continue
+            # 判断加的人是不是好友
+        if (
+            group.group_owner.id == self_user_id
+            or self_user_id in group.group_admin.all()
+        ):  # user is group owner or admin
+            if (
+                    not Friendship.objects.filter(
+                        user1=self_user_id, user2=member
+                    ).exists()
+                    and
+                    not Friendship.objects.filter(
+                    user2=self_user_id, user1=member
+                    ).exists()
+                    and
+                    member not in group.group_candidate_members
+            ):
+                print("not friends and not in candidate_list")
+                continue
+            real_add_list.append(member)
+            group.group_members.add(member)
+            # delete they in candidate list
+            if member in group.group_candidate_members.all():
+                group.group_candidate_members.remove(member)
+        else:  # user is not group owner or admin
+            print("not admin")
+            if (
+                    not Friendship.objects.filter(
+                        user1=self_user_id, user2=member
+                    ).exists()
+                    and not Friendship.objects.filter(
+                user2=self_user_id, user1=member
+            ).exists()
+            ):
+                print("not friends. ")
+                continue
+            if member not in group.group_candidate_members.all():
+                group.group_candidate_members.add(member)
+            candidate_add_list.append(member)
     group.save()
     if len(real_add_list) == 0 and len(candidate_add_list) == 0:
+        print(f"real_list: {real_add_list}, candidate_add_list: {candidate_add_list}")
         raise KeyError("no one can be added")
     id_list = []
     if len(real_add_list) != 0:  # if real add, inform all members
@@ -623,9 +645,9 @@ def db_reply(user_id, reply_id, this_id):
     if this is None:
         raise KeyError("this not found")
     if (
-        this.receiver != reply.receiver
-        and reply.receiver != user_id
-        and reply.sender != user_id
+            this.receiver != reply.receiver
+            and reply.receiver != user_id
+            and reply.sender != user_id
     ):
         raise KeyError("you cannot reply this message")
     reply.who_reply.add(this_id)
