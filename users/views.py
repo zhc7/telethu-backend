@@ -18,7 +18,7 @@ from utils.uid import globalIdMaker
 from utils.utils_jwt import hash_string_with_sha256, generate_jwt_token
 from utils.utils_request import request_failed, request_success, BAD_METHOD
 from utils.utils_require import check_require, require
-
+import time
 
 def authentication(req: HttpRequest):
     # 检查请求方法
@@ -110,6 +110,7 @@ def receive_code(req: HttpRequest):
     # Get or create
     verify_maillist, created = VerifyMailList.objects.get_or_create(email=user_email)
     verify_maillist.verification_code = email_ret
+    verify_maillist.verification_time = time.time() * 1000000
     verify_maillist.save()
 
     return request_success()
@@ -145,6 +146,11 @@ def register(req: HttpRequest):
         return request_failed(2, "userEmail already exists", status_code=403)
     if (verifier is None) or int(verifier.verification_code == 0):
         return request_failed(2, "Email haven't registered yet! ", status_code=404)
+    if time.time() - (verifier.verification_code / 1000000) > 300:
+        verifier.verification_code = 0
+        verifier.verification_time = 0
+        verifier.save()
+        return request_failed(2, "Verification has expired!", status_code=403)
     if settings.DEBUG:
         if not (int(verification_code) == 114514 or int(verification_code) == verifier.verification_code):
             return request_failed(2, "Wrong verification code! ", status_code=404)
