@@ -88,7 +88,7 @@ def logout(req: HttpRequest):
 
 
 @csrf_exempt  # 允许跨域,便于测试
-def register(req: HttpRequest):
+def receive_code(req: HttpRequest):
     if req.method != "POST":
         return BAD_METHOD
     body = json.loads(req.body)
@@ -115,7 +115,7 @@ def register(req: HttpRequest):
     return request_success()
 
 @csrf_exempt  # 允许跨域,便于测试
-def effective_email(req: HttpRequest):
+def register(req: HttpRequest):
     if req.method != "POST":
         return BAD_METHOD
     body = json.loads(req.body)
@@ -137,9 +137,11 @@ def effective_email(req: HttpRequest):
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
     verifier = VerifyMailList.objects.filter(email=user_email).first()
-    if (verifier is None) or (verifier.verification_code == 0):
+    if User.objects.filter(userEmail=user_email, is_deleted=False).exists():
+        return request_failed(2, "userEmail already exists", status_code=403)
+    if (verifier is None) or int(verifier.verification_code == 0):
         return request_failed(2, "Email haven't registered yet! ", status_code=404)
-    if verifier.verification_code != verification_code:
+    if verifier.verification_code != int(verification_code):
         return request_failed(2, "Wrong verification code! ", status_code=404)
     if not check_require(username, "username"):
         return request_failed(2, "Invalid username", status_code=422)
@@ -156,6 +158,7 @@ def effective_email(req: HttpRequest):
         userEmail=user_email,
     )
     user.save()
+    return request_success()
 
 @require_GET
 def get_user_info(req: HttpRequest, user_id: int):

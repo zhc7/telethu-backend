@@ -148,7 +148,7 @@ class SimpleMiddleware:
             not path.endswith("/login")
             and not path.startswith("/users/email_exists")
             and not path.endswith("/register")
-            and not path.endswith("/effective_email")
+            and not path.endswith("/receive_code")
             and "verify" not in path
         ):
             print("You are not logging in!")
