@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import re
-from telethu import settings 
+from telethu import settings
 import magic
 from django.core.signing import loads
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -64,7 +64,7 @@ def login(req: HttpRequest):
         ).model_dump(),
     }
     return request_success(response_data)
-  
+
 
 @csrf_exempt  # 关闭csrf验证
 def logout(req: HttpRequest):
@@ -271,18 +271,13 @@ def get_you_apply_list(req: HttpRequest):
 
 @csrf_exempt
 def verification(signed_data):
-    print("Your are in verification! ")
     data = loads(signed_data)
     user_id = data["user_id"]
     email = data["email"]
-    print("1!")
     user = User.objects.get(id=user_id, userEmail=email, is_deleted=False)
-    print("2")
     if user is None:
-        print("3")
         return request_failed(2, "No such user in email verification!", status_code=404)
     else:
-        print("user found!")
         user.verification = True
         user.save()
         return request_success()
@@ -492,7 +487,7 @@ def edit_profile(req: HttpRequest):
             "avatar": user.avatar,
         }
     )
-    
+
 @csrf_exempt
 def update_email(req: HttpRequest):
     body = json.loads(req.body)
@@ -511,7 +506,7 @@ def update_email(req: HttpRequest):
     verifier = VerifyMailList.objects.filter(email=oldEmail).first()
     if verifier is None:
         return request_failed(2, "Not in verificaition list!", status_code=404)
- 
+
     if User.objects.filter(userEmail=newEmail).exists():
         return request_failed(2, "New email already exists! ", status_code=404)
     user = User.objects.get(userEmail=oldEmail)
