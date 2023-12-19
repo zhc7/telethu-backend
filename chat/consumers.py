@@ -172,9 +172,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_received.who_read = []
         message_received.time = round(time.time() * 1000)
         message_received.t_type = (
-            TargetType.FRIEND
-            if message_received.receiver in self.friend_list
-            else TargetType.GROUP
+            TargetType.GROUP
+            if message_received.receiver in self.group_list
+            else TargetType.FRIEND
         )
 
         # step 2. give back ack
@@ -331,7 +331,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content = "Success"
             await self.send_message_to_target(message, str(friend_id))
             await db_friendship_change(self.user_id, friend_id, 1)
-        self.friend_list.append(friend_id)
         await self.send_message_to_target(message, str(self.user_id))
 
     async def rcv_reject_friend(self, message: Message):
@@ -377,7 +376,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.content = "Success delete"
             await self.send_message_to_target(message, str(friend_id))
             await db_friendship_change(self.user_id, friend_id, 3)
-            self.friend_list.remove(friend_id)
         await self.send_message_to_target(message, str(self.user_id))
 
     async def rcv_send_init_id(self, _: Message = None):
@@ -386,7 +384,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def rcv_send_meta_info(self, _: Message = None):
         group_info: dict[int, GroupData] = await db_query_group_info(self.group_list)
-        friends_id = await db_query_friends(self.user_id)
+        friends_id = await db_query_friends(self.user_id,if_include_block=True)
+        self.friend_list = await db_query_friends(self.user_id) # update friend list
         friend_info: dict[int, UserData] = await db_query_friends_info(friends_id)
         contacts_info: dict[int, ContactsData] = {}
         contacts_info.update(group_info)
@@ -633,7 +632,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.send_message_to_target(
                     message_received, str(message_received.receiver)
                 )
-            await self.send_message_to_target(message_received, str(self.user_id))
+                await self.send_message_to_target(message_received, str(self.user_id))
+            else:
+                message_received.content = "You are not friends or you are blocked or you are not in group"
+                message_received.t_type = TargetType.ERROR
+                await self.send_message_to_front(message_received)
         elif message_received.t_type == TargetType.GROUP:
             group_member = self.group_members[
                 message_received.receiver
@@ -661,8 +664,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         handler: Callable[[Message], Any] = {
             MessageType.FUNC_CREATE_GROUP: self.cb_fresh_group_info,
             MessageType.FUNC_ADD_GROUP_MEMBER: self.cb_fresh_group_info,
-            MessageType.FUNC_ACCEPT_FRIEND: self.cb_accept_friend,
-            MessageType.FUNC_DEL_FRIEND: self.cb_del_friend,
+            MessageType.FUNC_ACCEPT_FRIEND: self.cb_fresh_friend_info,
+            MessageType.FUNC_DEL_FRIEND: self.cb_fresh_friend_info,
+            MessageType.FUNC_BlOCK_FRIEND: self.cb_fresh_friend_info,
+            MessageType.FUNC_UNBLOCK_FRIEND: self.cb_fresh_friend_info,
             MessageType.FUNC_LEAVE_GROUP: self.cb_fresh_group_info,
             MessageType.FUNC_CHANGE_GROUP_OWNER: self.cb_fresh_group_info,
             MessageType.FUNC_ADD_GROUP_ADMIN: self.cb_fresh_group_info,
@@ -674,13 +679,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await push_message()
 
-    async def cb_del_friend(self, message):
-        if str(message.receiver) == str(self.user_id):
-            self.friend_list.remove(message.sender)
 
-    async def cb_accept_friend(self, message):
-        if str(message.receiver) == str(self.user_id):
-            self.friend_list.append(message.sender)
+    async def cb_fresh_friend_info(self, _: Message):
+        self.friend_list = await db_query_friends(self.user_id)
 
     async def cb_fresh_group_info(self, _: Message):
         await self.fresh_group_info()

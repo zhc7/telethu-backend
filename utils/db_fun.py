@@ -39,7 +39,7 @@ def db_query_group_info(group_id_list) -> dict[int, GroupData]:
 
 
 @database_sync_to_async
-def db_query_friends(user_id):
+def db_query_friends(user_id,if_include_block=False):
     friends = Friendship.objects.filter(user1=user_id)
     friends = friends | Friendship.objects.filter(user2=user_id)
     friends_id = []
@@ -51,7 +51,7 @@ def db_query_friends(user_id):
                 friend_id = friend.user1.id
             if friend_id not in friends_id:
                 friends_id.append(friend_id)
-        if friend.state == 2:
+        if friend.state == 2 and if_include_block:
             if str(friend.user2.id) == str(user_id):
                 friend_id = friend.user1.id
                 friends_id.append(friend_id)
