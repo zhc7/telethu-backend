@@ -104,3 +104,9 @@ class LoginMailList(models.Model):
     email = models.EmailField(unique=True, max_length=128)
     # 对应的验证码
     verification_code = models.IntegerField(default=0)
+
+class MaxId(models.Model):
+    max_id_value = models.IntegerField()
+
+    def __str__(self):
+        return str(self.max_id_value)

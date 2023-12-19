@@ -1,5 +1,5 @@
 from threading import Lock
-from users.models import User, GroupList, MessageList
+from users.models import User, GroupList, MessageList, MaxId
 
 
 class IdMaker:
@@ -19,6 +19,16 @@ class IdMaker:
         if max_group_id is None:
             max_group_id = 0
         self.id = max(max_id, max_group_id)
+        max_id_value = MaxId.objects.first()
+        if max_id_value is None:
+            max_id_value = MaxId(max_id_value=self.id)
+            max_id_value.save()
+        else:
+            if max_id_value.max_id_value < self.id:
+                max_id_value.max_id_value = self.id
+                max_id_value.save()
+            else:
+                self.id = max_id_value.max_id_value
         self.initialized = True
 
     def get_id(self):
@@ -26,6 +36,9 @@ class IdMaker:
             self.late_init()
         with self.lock:
             self.id += 1
+        max_id_value = MaxId.objects.first()
+        max_id_value.max_id_value = self.id
+        max_id_value.save()
         return self.id
 
 
