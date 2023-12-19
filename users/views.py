@@ -464,6 +464,12 @@ def edit_profile(req: HttpRequest):
     new_password = body.get("new_password")
     old_password = body.get("old_password")
     if new_email:
+        password = body.get("password")
+        if password is None:
+            return request_failed(2, "Password not found for altering email!", status_code=403)
+        password = hash_string_with_sha256(password, num_iterations=5)
+        if user.password != password:
+            return request_failed(2, "Incorrect password! ", status_code=403)
         if (
             User.objects.filter(userEmail=new_email).exists()
             and User.objects.get(userEmail=new_email).id != user.id
