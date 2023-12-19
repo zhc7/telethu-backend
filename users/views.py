@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import re
-from telethu import settings
+from telethu import settings 
 import magic
 from django.core.signing import loads
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -64,7 +64,7 @@ def login(req: HttpRequest):
         ).model_dump(),
     }
     return request_success(response_data)
-
+  
 
 @csrf_exempt  # 关闭csrf验证
 def logout(req: HttpRequest):
@@ -271,13 +271,18 @@ def get_you_apply_list(req: HttpRequest):
 
 @csrf_exempt
 def verification(signed_data):
+    print("Your are in verification! ")
     data = loads(signed_data)
     user_id = data["user_id"]
     email = data["email"]
+    print("1!")
     user = User.objects.get(id=user_id, userEmail=email, is_deleted=False)
+    print("2")
     if user is None:
+        print("3")
         return request_failed(2, "No such user in email verification!", status_code=404)
     else:
+        print("user found!")
         user.verification = True
         user.save()
         return request_success()
@@ -470,6 +475,14 @@ def edit_profile(req: HttpRequest):
         if not check_require(new_email, "email"):
             return request_failed(2, "Invalid email", status_code=422)
         email_ret = email_sender(new_email, 2)
+        if email_ret == 0:
+            return request_failed(2, "Can't sent to invalid email! ", status_code=422)
+        print("current user email is: ", user.userEmail)
+        verifier = VerifyMailList.objects.filter(email=user.userEmail).first()
+        if verifier is None:
+            return request_failed(2, "Not in verificaition list!", status_code=404)
+        verifier.verification_code = email_ret
+        verifier.save()
     if new_name:
         user.username = new_name
     if new_password:
@@ -487,7 +500,7 @@ def edit_profile(req: HttpRequest):
             "avatar": user.avatar,
         }
     )
-
+    
 @csrf_exempt
 def update_email(req: HttpRequest):
     body = json.loads(req.body)
@@ -506,7 +519,12 @@ def update_email(req: HttpRequest):
     verifier = VerifyMailList.objects.filter(email=oldEmail).first()
     if verifier is None:
         return request_failed(2, "Not in verificaition list!", status_code=404)
-
+    if settings.DEBUG:
+            if not (int(verification_code) == 114514 or int(verification_code) == verifier.verification_code):
+                return request_failed(2, "Wrong verification code! ", status_code=404)
+    else:
+        if verifier.verification_code != int(verification_code):
+            return request_failed(2, "Wrong verification code! ", status_code=404)
     if User.objects.filter(userEmail=newEmail).exists():
         return request_failed(2, "New email already exists! ", status_code=404)
     user = User.objects.get(userEmail=oldEmail)
