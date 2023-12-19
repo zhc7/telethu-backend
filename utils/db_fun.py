@@ -140,8 +140,8 @@ def db_add_member(group_id, add_members, self_user_id):
     if group is None:
         raise KeyError("group not exist")
     # 判断自己是否在群里，不在就加不了人
-    user = User.objects.filter(id=self_user_id).first()
-    if user not in group.group_members.all():
+    user_self = User.objects.filter(id=self_user_id).first()
+    if user_self not in group.group_members.all():
         raise KeyError("you are not in group")
     # 加好友列表
     real_add_list = []
@@ -164,7 +164,7 @@ def db_add_member(group_id, add_members, self_user_id):
             # 判断加的人是不是好友
         if (
             group.group_owner.id == self_user_id
-            or user in group.group_admin.all()
+            or user_self in group.group_admin.all()
         ):  # user is group owner or admin
             if (
                     not Friendship.objects.filter(
@@ -390,11 +390,14 @@ def db_add_or_remove_admin(group_id, admin_id, user_id, if_add):
 @database_sync_to_async
 def db_group_remove_member(group_id, remove_id, user_id):
     group = GroupList.objects.filter(group_id=group_id).first()
+    user_self = User.objects.filter(id=user_id).first()
+    if user_self is None:
+        raise KeyError("user not exist")
     if group is None:
         raise KeyError("group not exist")
     if group.group_owner is None:
         raise KeyError("group owner not exist,this group must be deleted")
-    if group.group_owner.id != user_id and user_id not in group.group_admin.all():
+    if group.group_owner.id != user_id and user_self not in group.group_admin.all():
         raise KeyError("you are not the owner or admin")
     user = User.objects.filter(id=remove_id).first()
     if user is None:
@@ -415,11 +418,14 @@ def db_group_remove_member(group_id, remove_id, user_id):
 @database_sync_to_async
 def db_add_or_del_top_message(group_id, message_id, user_id, if_add):
     group = GroupList.objects.filter(group_id=group_id).first()
+    user_self = User.objects.filter(id=user_id).first()
+    if user_self is None:
+        raise KeyError("user not exist")
     if group is None:
         raise KeyError("group you chose not exist")
     if group.group_owner is None:
         raise KeyError("group owner not exist,this group must be deleted")
-    if group.group_owner.id != user_id and user_id not in group.group_admin.all():
+    if group.group_owner.id != user_id and user_self not in group.group_admin.all():
         raise KeyError("you are not the owner or admin")
     message = MessageList.objects.filter(message_id=message_id).first()
     if message is None:
@@ -482,6 +488,9 @@ def db_recall_member_message(message_id, group_id, user_id):
         raise KeyError("group not exist")
     if group.group_owner is None:
         raise KeyError("group owner not exist,this group must be deleted")
+    user_self = User.objects.filter(id=user_id).first()
+    if user_self is None:
+        raise KeyError("user not exist")
     if user_id == group.group_owner.id:
         message.status = message.status | MessageStatusType.RECALLED
         message.save()
@@ -489,10 +498,13 @@ def db_recall_member_message(message_id, group_id, user_id):
         for member in group.group_members.all():
             group_member.append(member.id)
         return group_member
-    elif user_id in group.group_admin.all():
+    elif user_self in group.group_admin.all():
+        user_sender = User.objects.filter(id=sender_id).first()
+        if user_sender is None:
+            raise KeyError("sender not exist")
         if sender_id == group.group_owner.id:
             raise KeyError("you cannot recall owner's message")
-        elif sender_id in group.group_admin.all():
+        elif user_sender in group.group_admin.all():
             raise KeyError("you cannot recall admin's message if you are not owner")
         else:
             message.status = message.status | MessageStatusType.RECALLED
@@ -642,7 +654,10 @@ def db_change_group_name(group_id, group_name, user_id):
         raise KeyError("group not found")
     if group.group_owner is None:
         raise KeyError("group owner not found")
-    if group.group_owner.id != user_id and user_id not in group.group_admin.all():
+    user_self = User.objects.filter(id=user_id).first()
+    if user_self is None:
+        raise KeyError("user not exist")
+    if group.group_owner.id != user_id and user_self not in group.group_admin.all():
         raise KeyError("you are not the owner or admin")
     group.group_name = group_name
     group.save()
