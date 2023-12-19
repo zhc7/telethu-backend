@@ -387,9 +387,10 @@ def user_search(req: HttpRequest):
     user_list = []
     id_list = []
     if search_type == 0:  # user_id,只有全为数字才能这么搜
-        if User.objects.filter(id=user_message).exists():
-            user = User.objects.get(id=user_message)
-            id_list.append(user)
+        user_id = int(user_message)
+        if User.objects.filter(id=user_id).exists():
+            user = User.objects.filter(id=user_id).first()
+            id_list = [user]
     email_list = User.objects.filter(userEmail__icontains=user_message)
     name_list = User.objects.filter(username__icontains=user_message)
     if search_type == 0:
