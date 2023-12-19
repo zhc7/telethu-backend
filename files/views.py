@@ -20,7 +20,11 @@ def check_type(m_type, detected_mime):
         ):
             raise ValueError("the file type is not correct")
     elif m_type == 1:  # audio
-        if "mpeg" not in detected_mime.lower():
+        if (
+            "mpeg" not in detected_mime.lower()
+            and "aac" not in detected_mime.lower()
+            and "wav" not in detected_mime.lower()
+        ):
             raise ValueError("the file type is not correct")
     elif m_type == 2:  # video
         if "mp4" not in detected_mime.lower():
@@ -104,7 +108,19 @@ def load(req: HttpRequest, hash_code: str):
                                 2, "the file type is not correct", status_code=404
                             )
                     elif m_type == 1:  # audio
-                        response = HttpResponse(content, content_type="audio/mpeg")
+                        # check the type of the file
+                        mime = magic.Magic()
+                        detected_mime = mime.from_buffer(multimedia_content)
+                        if "mpeg" in detected_mime.lower():
+                            response = HttpResponse(content, content_type="audio/mpeg")
+                        elif "aac" in detected_mime.lower():
+                            response = HttpResponse(content, content_type="audio/aac")
+                        elif "wav" in detected_mime.lower():
+                            response = HttpResponse(content, content_type="audio/wav")
+                        else:
+                            return request_failed(
+                                2, "the file type is not correct", status_code=404
+                            )
                     elif m_type == 2:  # video
                         response = HttpResponse(content, content_type="video/mp4")
                     elif m_type == 3:  # file
