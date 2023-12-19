@@ -164,7 +164,7 @@ def db_add_member(group_id, add_members, self_user_id):
             # 判断加的人是不是好友
         if (
             group.group_owner.id == self_user_id
-            or self_user_id in group.group_admin.all()
+            or user in group.group_admin.all()
         ):  # user is group owner or admin
             if (
                     not Friendship.objects.filter(
