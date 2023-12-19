@@ -24,6 +24,7 @@ def check_type(m_type, detected_mime):
             "mpeg" not in detected_mime.lower()
             and "aac" not in detected_mime.lower()
             and "wav" not in detected_mime.lower()
+            and "webm" not in detected_mime.lower()
         ):
             raise ValueError("the file type is not correct")
     elif m_type == 2:  # video
@@ -117,6 +118,8 @@ def load(req: HttpRequest, hash_code: str):
                             response = HttpResponse(content, content_type="audio/aac")
                         elif "wav" in detected_mime.lower():
                             response = HttpResponse(content, content_type="audio/wav")
+                        elif "webm" in detected_mime.lower():
+                            response = HttpResponse(content, content_type="audio/webm")
                         else:
                             return request_failed(
                                 2, "the file type is not correct", status_code=404
