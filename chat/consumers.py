@@ -612,7 +612,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             reply_id = message_received.info["reference"]
             this_id = message_received.message_id
             try:
-                target = await db_reply(self.user_id, reply_id, this_id)
+                target = await db_reply(self.user_id, reply_id, this_id,this_receiver=message_received.receiver)
             except KeyError as e:
                 message_received.content = str(e)
                 message_received.t_type = TargetType.ERROR

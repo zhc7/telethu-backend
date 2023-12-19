@@ -228,8 +228,7 @@ def db_reject_candidate(group_id: int, rejected_member: int, self_user_id: int):
         raise KeyError("Not a candidate")
     group.group_candidate_members.remove(rejected_member)
     group.save()
-    id_list = []
-    id_list.append(group.group_owner.id)
+    id_list = [group.group_owner.id]
     for member in group.group_admin.all():
         id_list.append(member.id)
     return id_list
@@ -653,18 +652,15 @@ def db_change_group_name(group_id, group_name, user_id):
 
 
 @database_sync_to_async
-def db_reply(user_id, reply_id, this_id):
+def db_reply(user_id, reply_id, this_id,this_receiver):
     user = User.objects.filter(id=user_id).first()
     if user is None:
         raise KeyError("user not found")
     reply = MessageList.objects.filter(message_id=reply_id).first()
     if reply is None:
-        raise KeyError("reply not found")
-    this = MessageList.objects.filter(message_id=this_id).first()
-    if this is None:
-        raise KeyError("this not found")
+        raise KeyError("the message be replied not found")
     if (
-            this.receiver != reply.receiver
+            this_receiver != reply.receiver
             and reply.receiver != user_id
             and reply.sender != user_id
     ):
