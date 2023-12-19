@@ -440,11 +440,11 @@ def db_add_or_del_top_message(group_id, message_id, user_id, if_add):
 
 
 @database_sync_to_async
-def db_add_read_message(self_group_list, message_id, user_id):
+def db_add_read_message(available_list, message_id, user_id):
     message = MessageList.objects.filter(message_id=message_id).first()
     if message is None:
         raise KeyError("message not exist")
-    if message.receiver != user_id and message.receiver not in self_group_list:
+    if message.receiver != user_id and message.receiver not in available_list:
         raise KeyError("you cannot read this message")
     else:
         message.who_read.add(user_id)

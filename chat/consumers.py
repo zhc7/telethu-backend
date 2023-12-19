@@ -401,7 +401,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message_sender,
                 message_receiver,
                 message_t_type,
-            ) = await db_add_read_message(self.group_list, message_id, self.user_id)
+            ) = await db_add_read_message(self.group_list + self.friend_list, message_id, self.user_id)
         except KeyError as e:
             message.content = str(e)
             message.t_type = TargetType.ERROR
@@ -409,7 +409,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
         message.receiver = message_receiver
         message.t_type = message_t_type
-        message.sender = self.user_id
+        message.sender = message_sender
         await self.send_message_to_target(message, str(self.user_id))
         await self.send_message_to_target(message, str(message_sender))
 
