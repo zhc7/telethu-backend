@@ -616,6 +616,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message_received.content = str(e)
                 message_received.t_type = TargetType.ERROR
                 await self.send_message_to_front(message_received)
+                return
             else:
                 message = message_received
                 message.content = reply_id
@@ -632,18 +633,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.send_message_to_target(
                     message_received, str(message_received.receiver)
                 )
-                await self.send_message_to_target(message_received, str(self.user_id))
             else:
                 message_received.content = "You are not friends or you are blocked or you are not in group"
                 message_received.t_type = TargetType.ERROR
                 await self.send_message_to_front(message_received)
+                return
         elif message_received.t_type == TargetType.GROUP:
             group_member = self.group_members[
                 message_received.receiver
             ]  # receiver is group id
             for member in group_member:
                 await self.send_message_to_target(message_received, str(member))
-            await self.send_message_to_target(message_received, str(self.user_id))
+        await self.send_message_to_target(message_received, str(self.user_id))
 
     async def callback(self, body: AbstractIncomingMessage):
         message = Message.model_validate_json(body.body.decode())
