@@ -1,12 +1,9 @@
 from datetime import datetime
 
-from django.shortcuts import redirect
-from django.urls import reverse
-from users.models import User
 from utils.session import SessionData
 from utils.utils_jwt import check_jwt_token
 from utils.utils_request import request_failed
-from django.http import JsonResponse
+
 
 # TODO: 在中间件中编写获得 id（ django-session，触发 session 机制可以自动获得 session_data ）
 
@@ -51,92 +48,15 @@ class SimpleMiddleware:
             return None
         return 0
 
-    # 除了利用 session 进行鉴权以外，还需要使用 request 当中的 JWT 进行鉴权
     @staticmethod
-    def check_token(request):
-        jwt_token = request.headers.get("Authorization")
-        check_result = check_jwt_token(jwt_token)
-        print("check_result is ", check_result)
-        if check_result is not None:
-            # 从 payload 当中获得 username 字段
-            user_id = check_result["user_id"]
-            users = User.objects.filter(id=user_id)
-            if len(users) == 0:
-                # 没有找到相应的 user
-                return 0
-
-        else:
-            return 1
-
-        if check_result["user_id"] != request.session.get("user_id"):
-            return 2
-
-    # 完整的鉴权逻辑，在上面的注释当中有所提及
-    def check_token_and_session(self, request):
+    def check_token_and_session(request):
         token = request.headers.get("Authorization")
         print("token is: ", token)
-        my_user_id = request.session.get("user_id")
-        print("my_user_id is: ", my_user_id)
-        if token and my_user_id:
-            print("branch 1")
-            token_result = self.check_token(request)
-            if token_result == 0:
-                return JsonResponse({"code": 2, "info": "User not found"}, status=401)
-            elif token_result == 1:
-                return request_failed(
-                    2, "JWT not found or JWT format error", status_code=401
-                )
-            elif token_result == 2:
-                session = SessionData(request)
-                if request.session.get("user_id") is None:
-                    session.user_id = None
-                    return request_failed(
-                        2, "Login has expired or haven't login 1!", status_code=401
-                    )
-                return request_failed(
-                    2,
-                    "User id in session and token doesn't match! ",
-                    status_code=401,
-                )
-            login_result = self.check_last_login(request)
-            if login_result is None:
-                session = SessionData(request)
-                session.user_id = None
-                return request_failed(
-                    2, "Login has expired or haven't login 2!", status_code=401
-                )
-        elif token and not my_user_id:
-            print("branch 2")
-            check_result = check_jwt_token(token)
-            session = SessionData(request)
-            if check_result is None:
-                return request_failed(2, "Invalid or expired JWT", status_code=401)
-            else:
-                session.user_id = check_result["user_id"]
-        elif not token and my_user_id:
-            print("branch 3")
-            if request.session.get("user_id") is None:
-                session = SessionData(request)
-                session.user_id = None
-                return request_failed(
-                    2, "Login has expired or haven't login 3!", status_code=401
-                )
-            login_result = self.check_last_login(request)
-            if login_result is None:
-                session = SessionData(request)
-                session.user_id = None
-                return request_failed(
-                    2, "Login has expired or haven't login 4!", status_code=401
-                )
-        elif not token and not my_user_id:
-            print("branch 4")
-            return request_failed(2, "Can't find session and token!", status_code=401)
         session = SessionData(request)
-        request.user_id = session.user_id
-        print("request id:", request.user_id)
-        return 0
-
-    # 在收到 response 的时候，我们是不是应该做些什么...
+        user_id = check_jwt_token(token)
+        if user_id is None:
+            return request_failed(2, "Invalid Token", 401)
+        session.user_id = user_id
 
     def __call__(self, request):
         # Code to be executed for each request before

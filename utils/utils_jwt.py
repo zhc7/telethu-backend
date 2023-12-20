@@ -5,6 +5,8 @@ import json
 import time
 from typing import Optional
 
+from users.models import User
+
 SALT = "DeepDarkFantasy".encode("utf-8")
 EXPIRE_IN_SECONDS = 60 * 60 * 24 * 1  # 1 day
 ALT_CHARS = "-_".encode("utf-8")
@@ -36,6 +38,12 @@ def b64url_decode(s: str, decode_to_str=True):
         return base64.b64decode(s, altchars=ALT_CHARS)
 
 
+def sign(*parts):
+    raw = ".".join(parts)
+    signature = hmac.new(SALT, raw.encode("utf-8"), digestmod=hashlib.sha256).digest()
+    return b64url_encode(signature)
+
+
 def generate_jwt_token(user_id: str):
     # * header
     header = {"alg": "HS256", "typ": "JWT"}
@@ -49,19 +57,15 @@ def generate_jwt_token(user_id: str):
         "iat": int(time.time()),
         "exp": int(time.time()) + EXPIRE_IN_SECONDS,
         "data": {
-            "user_id": user_id
-            # And more data for your own usage
+            "user_id": user_id,
         },
     }
     payload_str = json.dumps(payload, separators=(",", ":"))
     payload_b64 = b64url_encode(payload_str)
 
     # * signature
-    signature_raw = header_b64 + "." + payload_b64
-    signature = hmac.new(
-        SALT, signature_raw.encode("utf-8"), digestmod=hashlib.sha256
-    ).digest()
-    signature_b64 = b64url_encode(signature)
+    password = User.objects.filter(id=user_id)[0].password
+    signature_b64 = sign(header_b64, payload_b64, password)
 
     return header_b64 + "." + payload_b64 + "." + signature_b64
 
@@ -70,24 +74,21 @@ def check_jwt_token(token: str) -> Optional[dict]:
     # * Split token
     try:
         header_b64, payload_b64, signature_b64 = token.split(".")
-    except:
-        return None
-
-    try:
         payload_str = b64url_decode(payload_b64)
+        payload = json.loads(payload_str)
+
         # * Check signature
-        signature_str_check = header_b64 + "." + payload_b64
-        signature_check = hmac.new(
-            SALT, signature_str_check.encode("utf-8"), digestmod=hashlib.sha256
-        ).digest()
-        signature_b64_check = b64url_encode(signature_check)
+        password = User.objects.filter(id=payload["user_id"])[0].password
+        signature_b64_check = sign(header_b64, payload_b64, password)
         if signature_b64_check != signature_b64:
             return None
 
         # Check expire
-        payload = json.loads(payload_str)
         if payload["exp"] < time.time():
             return None
-        return payload["data"]
+        user_id = payload["data"]["user_id"]
+        if not User.objects.filter(id=user_id).exists():
+            return None
+        return user_id
     except:
         return None

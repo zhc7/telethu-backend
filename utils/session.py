@@ -37,7 +37,7 @@ class WebSocketSessionData:
 
     @property
     def user_id(self):
-        return self.scope["session"]["user_id"]
+        return self.scope["session"].get("user_id")
 
     @user_id.setter
     def user_id(self, user_id):
