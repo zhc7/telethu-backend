@@ -1,11 +1,24 @@
 from datetime import datetime
 
-from django.http import JsonResponse, QueryDict
+from channels.db import database_sync_to_async
+from django.http import QueryDict
 
-from users.models import User
 from utils.session import WebSocketSessionData
 from utils.utils_jwt import check_jwt_token
 from utils.utils_request import request_failed
+
+
+@database_sync_to_async
+def check_token_and_session(scope):
+    query_string = scope["query_string"].decode("utf-8")
+    query_params = QueryDict(query_string)
+    token = query_params.get("token")
+    session = WebSocketSessionData(scope)
+    user_id = check_jwt_token(token)
+    if user_id is None:
+        return request_failed(2, "Token Invalid", 401)
+    session.user_id = user_id
+    return 0
 
 
 class QueryAuthMiddleware:
@@ -43,26 +56,13 @@ class QueryAuthMiddleware:
             return None
         return 0
 
-    # 完整的鉴权逻辑，在上面的注释当中有所提及
-    @staticmethod
-    def check_token_and_session(scope):
-        query_string = scope["query_string"].decode("utf-8")
-        query_params = QueryDict(query_string)
-        token = query_params.get("token")
-        session = WebSocketSessionData(scope)
-        user_id = check_jwt_token(token)
-        if user_id is None:
-            return request_failed(2, "Token Invalid", 401)
-        session.user_id = user_id
-        return 0
-
 
     async def __call__(self, scope, receive, send):
         # Look up user from query string (you should also do things like
         # checking if it is a valid user ID, or if scope["user"] is already
         # populated).
         print("in WS middleware!")
-        res = self.check_token_and_session(scope)
+        res = await check_token_and_session(scope)
         print("result is: ", res)
         if res != 0:
             return res
