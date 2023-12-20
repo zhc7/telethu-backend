@@ -69,6 +69,7 @@ class SimpleMiddleware:
         print("In auth middleware!")
         if (
             not path.endswith("/login")
+            and not path.endswith("login_with_email")
             and not path.startswith("/users/email_exists")
             and not path.endswith("/register")
             and not path.endswith("/receive_code")
@@ -85,7 +86,7 @@ class SimpleMiddleware:
         response = self.get_response(request)
         # Code to be executed for each request/response after
         # the view is called.
-        if path.endswith("/login"):
+        if path.endswith("/login") or path.endswith("/login_with_email"):
             print("You are now logging in! ")
             self.add_login_time(request)
         print("Out of auth middleware!")

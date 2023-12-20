@@ -112,7 +112,7 @@ def login_with_email(req: HttpRequest):
     user = User.objects.get(userEmail=user_email)
     if user is None:
         return request_failed(2, "No such user! ")
-    user.password = new_password
+    user.password = hash_string_with_sha256(new_password, num_iterations=5)
     user.save()
     user_id = user.id
     token = generate_jwt_token(user_id)
