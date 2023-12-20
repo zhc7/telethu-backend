@@ -435,6 +435,13 @@ def delete_user(req: HttpRequest):
     if user is None:
         return request_failed(2, "Deleting a user that doesn't exist!", status_code=404)
     else:
+        body = json.loads(req.body)
+        password = body.get("password")
+        if password is None:
+            return request_failed(2, "Password missing! ", status_code=403)
+        hashed_password = hash_string_with_sha256(password, num_iterations=5)
+        if user.password != hashed_password:
+            return request_failed(2, "Wrong password", status_code=403)
         session.user_id = None
         email = user.userEmail
         user.userEmail = user.userEmail + "is_deleted"
