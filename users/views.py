@@ -48,7 +48,7 @@ def login(req: HttpRequest):
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=403)
     user_id = user.id
-    token = generate_jwt_token(str(user_id))
+    token = generate_jwt_token(user_id)
     session = SessionData(req)
     if session.user_id is not None:
         return request_failed(
@@ -591,7 +591,7 @@ def edit_profile(req: HttpRequest):
             return request_failed(2, "Wrong password", 403)
         user.password = hash_string_with_sha256(new_password, num_iterations=5)
         user_id = user.id
-        token = generate_jwt_token(str(user_id))
+        token = generate_jwt_token(user_id)
     user.save()
     return JsonResponse(
         {

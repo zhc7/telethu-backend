@@ -44,7 +44,7 @@ def sign(*parts):
     return b64url_encode(signature)
 
 
-def generate_jwt_token(user_id: str):
+def generate_jwt_token(user_id: int):
     # * header
     header = {"alg": "HS256", "typ": "JWT"}
     # dump to str. remove `\n` and space after `:`
