@@ -591,6 +591,8 @@ def edit_profile(req: HttpRequest):
         if not user.password == hash_string_with_sha256(old_password, num_iterations=5):
             return request_failed(2, "Wrong password", 403)
         user.password = hash_string_with_sha256(new_password, num_iterations=5)
+        user_id = user.id
+        token = generate_jwt_token(user_id)
     user.save()
     return JsonResponse(
         {
@@ -598,6 +600,7 @@ def edit_profile(req: HttpRequest):
             "name": user.username,
             "email": user.userEmail,
             "avatar": user.avatar,
+            "token": token
         }
     )
 
