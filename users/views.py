@@ -65,6 +65,101 @@ def login(req: HttpRequest):
     }
     return request_success(response_data)
   
+@csrf_exempt  # 关闭csrf验证
+def receive_login_email(req: HttpRequest):
+    if req.method != "POST":
+        return BAD_METHOD
+    body = json.loads(req.body)
+    try:
+        # Only receive email for verification
+        user_email = require(
+            body, "userEmail", "string", err_msg="Missing or error type of [email]"
+        )
+    except KeyError as e:
+        error_message, status_code = str(e.args[0]), int(e.args[1])
+        return request_failed(2, error_message, status_code=status_code)
+    user = User.objects.filter(userEmail=user_email, is_deleted=False).first()
+    if user is None:
+        return request_failed(2, "No such user! ", status_code=404)
+    if not check_require(user_email, "email"):
+        return request_failed(2, "Invalid email", status_code=422)
+    email_ret = email_sender(user_email, 0)
+    if email_ret == 0:
+        return request_failed(
+            2, "Invalid email rejected by the email sender", status_code=422
+        )
+    # Get or create
+    login_maillist, created = LoginMailList.objects.get_or_create(email=user_email)
+    login_maillist.verification_code = email_ret
+    login_maillist.verification_time = time.time() * 1000000
+    login_maillist.save()
+    
+
+@csrf_exempt  # 关闭csrf验证
+def login_with_email(req: HttpRequest):
+    if req.method != "POST":
+        return BAD_METHOD
+    body = json.loads(req.body)
+    try:
+        # Only receive email for verification
+        user_email = require(
+            body, "userEmail", "string", err_msg="Missing or error type of [email]"
+        )
+        new_password = require(
+            body, "new_password", "string", err_msg="Missing or error type of [new_password]"
+        )
+        verification_code = require(
+            body,
+            "verification_code",
+            "string",
+            err_msg="Missing or error type of [verification_code]",
+        )
+    except KeyError as e:
+        error_message, status_code = str(e.args[0]), int(e.args[1])
+        return request_failed(2, error_message, status_code=status_code)
+    
+    verifier = LoginMailList.objects.filter(email=user_email).first()
+
+    if (verifier is None) or int(verifier.verification_code == 0):
+        return request_failed(2, "Email haven't registered yet! ", status_code=404)
+    print("now", time.time())
+    print("verify at: ", verifier.verification_time / 1000000)
+    if time.time() - (verifier.verification_time / 1000000) > 300:
+        verifier.verification_code = 0
+        verifier.verification_time = 0
+        verifier.save()
+        return request_failed(2, "Verification has expired!", status_code=403)
+    if settings.DEBUG:
+        if not (int(verification_code) == 114514 or int(verification_code) == verifier.verification_code):
+            return request_failed(2, "Wrong verification code! ", status_code=404)
+    else:
+        if verifier.verification_code != int(verification_code):
+            return request_failed(2, "Wrong verification code! ", status_code=404)
+        
+    # Change the password to the new password and login
+    user = User.objects.get(userEmail=user_email)
+    if user is None:
+        return request_failed(2, "No such user! ")
+    user.password = new_password
+    user.save()
+    user_id = user.id
+    token = generate_jwt_token(user_id)
+    session = SessionData(req)
+    if session.user_id is not None:
+        return request_failed(
+            2,
+            "Login failed because some user has login",
+            status_code=403,
+        )
+    session.user_id = user_id
+    response_data = {
+        "token": token,
+        "user": UserData(
+            id=user.id, name=user.username, avatar=user.avatar, email=user.userEmail
+        ).model_dump(),
+    }
+    return request_success(response_data)
+
 
 @csrf_exempt  # 关闭csrf验证
 def logout(req: HttpRequest):
@@ -80,6 +175,11 @@ def logout(req: HttpRequest):
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=404)
+    loginwithmail = LoginMailList.objects.filter(email=user.userEmail).first()
+    if loginwithmail is not None:
+        loginwithmail.verification_code = 0
+        loginwithmail.verification_time = 0
+        loginwithmail.save()
     session = SessionData(req)
     session.user_id = None
     return request_success()
@@ -425,12 +525,9 @@ def user_search(req: HttpRequest):
 
 @csrf_exempt
 def delete_user(req: HttpRequest):
-    session = SessionData(req)
-    if session.user_id is None:
-        return request_failed(2, "User isn't logging in! ", status_code=401)
     if req.method != "DELETE":
         return BAD_METHOD
-    user = User.objects.get(id=session.user_id)
+    user = User.objects.get(id=req.user_id)
     # exception
     if user is None:
         return request_failed(2, "Deleting a user that doesn't exist!", status_code=404)
@@ -442,7 +539,6 @@ def delete_user(req: HttpRequest):
         hashed_password = hash_string_with_sha256(password, num_iterations=5)
         if user.password != hashed_password:
             return request_failed(2, "Wrong password", status_code=403)
-        session.user_id = None
         email = user.userEmail
         user.userEmail = user.userEmail + "is_deleted"
         current_time = datetime.now()
@@ -455,6 +551,11 @@ def delete_user(req: HttpRequest):
             return request_failed(2, "Not in verificaition list!", status_code=404)
         verifier.verification_code = 0
         verifier.save()
+        loginwithmail = LoginMailList.objects.filter(email=user.userEmail).first()
+        if loginwithmail is not None:
+            loginwithmail.verification_code = 0
+            loginwithmail.verification_time = 0
+            loginwithmail.save()
         return request_success()
 
 
