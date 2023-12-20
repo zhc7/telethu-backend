@@ -68,36 +68,6 @@ def login(req: HttpRequest):
     return request_success(response_data)
   
 @csrf_exempt  # 关闭csrf验证
-def receive_login_email(req: HttpRequest):
-    if req.method != "POST":
-        return BAD_METHOD
-    body = json.loads(req.body)
-    try:
-        # Only receive email for verification
-        user_email = require(
-            body, "userEmail", "string", err_msg="Missing or error type of [email]"
-        )
-    except KeyError as e:
-        error_message, status_code = str(e.args[0]), int(e.args[1])
-        return request_failed(2, error_message, status_code=status_code)
-    user = User.objects.filter(userEmail=user_email, is_deleted=False).first()
-    if user is None:
-        return request_failed(2, "No such user! ", status_code=404)
-    if not check_require(user_email, "email"):
-        return request_failed(2, "Invalid email", status_code=422)
-    email_ret = email_sender(user_email, 0)
-    if email_ret == 0:
-        return request_failed(
-            2, "Invalid email rejected by the email sender", status_code=422
-        )
-    # Get or create
-    login_maillist, created = LoginMailList.objects.get_or_create(email=user_email)
-    login_maillist.verification_code = email_ret
-    login_maillist.verification_time = time.time() * 1000000
-    login_maillist.save()
-    
-
-@csrf_exempt  # 关闭csrf验证
 def login_with_email(req: HttpRequest):
     if req.method != "POST":
         return BAD_METHOD
@@ -120,7 +90,7 @@ def login_with_email(req: HttpRequest):
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
     
-    verifier = LoginMailList.objects.filter(email=user_email).first()
+    verifier = VerifyMailList.objects.filter(email=user_email).first()
 
     if (verifier is None) or int(verifier.verification_code == 0):
         return request_failed(2, "Email haven't registered yet! ", status_code=404)
