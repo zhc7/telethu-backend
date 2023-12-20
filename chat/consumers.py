@@ -618,7 +618,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.send_message_to_front(message_received)
                 return
             else:
-                message = message_received
+                message = Message(**message_received.model_dump())
                 message.content = reply_id
                 message.m_type = MessageType.FUNC_REPLY
                 await self.send_message_to_target(message_received, str(target))
