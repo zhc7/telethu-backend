@@ -45,6 +45,8 @@ def login(req: HttpRequest):
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
     hashed_password = hash_string_with_sha256(password, num_iterations=5)
+    print("hashed password: ", hashed_password)
+    print("user password: ", user.password)
     if user.password != hashed_password:
         return request_failed(2, "Wrong password", status_code=403)
     user_id = user.id
@@ -198,8 +200,6 @@ def receive_code(req: HttpRequest):
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
-    if User.objects.filter(userEmail=user_email, is_deleted=False).exists():
-        return request_failed(2, "userEmail already exists", status_code=403)
     if not check_require(user_email, "email"):
         return request_failed(2, "Invalid email", status_code=422)
     email_ret = email_sender(user_email, 0)
@@ -546,7 +546,7 @@ def delete_user(req: HttpRequest):
         user.userEmail = user.userEmail + time_string
         user.is_deleted = True
         user.save()
-        verifier = VerifyMailList.objects.get(email=email)
+        verifier = VerifyMailList.objects.filter(email=email).first()
         if verifier is None:
             return request_failed(2, "Not in verificaition list!", status_code=404)
         verifier.verification_code = 0
@@ -589,28 +589,33 @@ def edit_profile(req: HttpRequest):
         password = hash_string_with_sha256(password, num_iterations=5)
         if user.password != password:
             return request_failed(2, "Incorrect password! ", status_code=403)
-        if (
-            User.objects.filter(userEmail=new_email).exists()
-            and User.objects.get(userEmail=new_email).id != user.id
-        ):
-            return request_failed(2, "Email duplicated", 403)
-        # TODO: verification
-        if User.objects.filter(userEmail=new_email, is_deleted=False).exists():
-            return request_failed(2, "userEmail already exists", status_code=403)
-        if not check_require(new_email, "email"):
-            return request_failed(2, "Invalid email", status_code=422)
-        email_ret = email_sender(new_email, 2)
-        if email_ret == 0:
-            return request_failed(2, "Can't sent to invalid email! ", status_code=422)
-        print("current user email is: ", user.userEmail)
-        verifier = VerifyMailList.objects.filter(email=user.userEmail).first()
+        verification_code = require(
+            body,
+            "verification_code",
+            "string",
+            err_msg="Missing or error type of [verification_code]",
+        )
+        verifier = VerifyMailList.objects.filter(email=new_email).first()
         if verifier is None:
             return request_failed(2, "Not in verificaition list!", status_code=404)
-        verifier.verification_code = email_ret
+        if not (settings.DEBUG and int(verification_code) == 114514) and verifier.verification_code != int(verification_code):
+            return request_failed(2, "Wrong verification code! ", status_code=404)
+        if User.objects.filter(userEmail=new_email).exists():
+            return request_failed(2, "New email already exists! ", status_code=404)
+        user = User.objects.filter(id=req.user_id).first()
+        if user is None:
+            return request_failed(2, "No user found! ", status_code=404)
+        verifier.email = new_email
+        verifier.verification_code = 0
+        verifier.verification_time = 0
         verifier.save()
+        user.userEmail = new_email
+        
     if new_name:
         user.username = new_name
     if new_password:
+        print("user: ", user.password)
+        print("old: ", hash_string_with_sha256(old_password, num_iterations=5))
         if not old_password:
             return request_failed(2, "Old password not provided", 403)
         if not user.password == hash_string_with_sha256(old_password, num_iterations=5):
@@ -625,43 +630,6 @@ def edit_profile(req: HttpRequest):
             "avatar": user.avatar,
         }
     )
-    
-@csrf_exempt
-def update_email(req: HttpRequest):
-    body = json.loads(req.body)
-    oldEmail = require(
-        body, "oldEmail", "string", err_msg="Missing or error type of [oldEmail]"
-    )
-    newEmail = require(
-        body, "newEmail", "string", err_msg="Missing or error type of [newEmail]"
-    )
-    verification_code = require(
-        body,
-        "verification_code",
-        "string",
-        err_msg="Missing or error type of [verification_code]",
-    )
-    verifier = VerifyMailList.objects.filter(email=oldEmail).first()
-    if verifier is None:
-        return request_failed(2, "Not in verificaition list!", status_code=404)
-    if settings.DEBUG:
-            if not (int(verification_code) == 114514 or int(verification_code) == verifier.verification_code):
-                return request_failed(2, "Wrong verification code! ", status_code=404)
-    else:
-        if verifier.verification_code != int(verification_code):
-            return request_failed(2, "Wrong verification code! ", status_code=404)
-    if User.objects.filter(userEmail=newEmail).exists():
-        return request_failed(2, "New email already exists! ", status_code=404)
-    user = User.objects.get(userEmail=oldEmail)
-    if user is None:
-        return request_failed(2, "No user with old email found! ", status_code=404)
-    verifier.email = newEmail
-    verifier.verification_code = 0
-    verifier.verification_time = 0
-    verifier.save()
-    user.userEmail = newEmail
-    user.save()
-    return request_success()
 
 
 @csrf_exempt

@@ -76,6 +76,9 @@ class SimpleMiddleware:
         ):
             print("You are not logging in!")
             result = self.check_token_and_session(request)
+            session = SessionData(request)
+            if path.endswith("/delete_user"):
+                session.user_id = None
             if result != 0:
                 return result
 
