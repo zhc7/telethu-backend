@@ -54,9 +54,12 @@ class SimpleMiddleware:
         print("token is: ", token)
         session = SessionData(request)
         user_id = check_jwt_token(token)
+        print("jwt check result", user_id)
         if user_id is None:
             return request_failed(2, "Invalid Token", 401)
         session.user_id = user_id
+        request.user_id = user_id
+        return 0
 
     def __call__(self, request):
         # Code to be executed for each request before

@@ -78,7 +78,8 @@ def check_jwt_token(token: str) -> Optional[dict]:
         payload = json.loads(payload_str)
 
         # * Check signature
-        password = User.objects.filter(id=payload["user_id"])[0].password
+        user_id = payload["data"]["user_id"]
+        password = User.objects.filter(id=user_id)[0].password
         signature_b64_check = sign(header_b64, payload_b64, password)
         if signature_b64_check != signature_b64:
             return None
@@ -86,7 +87,6 @@ def check_jwt_token(token: str) -> Optional[dict]:
         # Check expire
         if payload["exp"] < time.time():
             return None
-        user_id = payload["data"]["user_id"]
         if not User.objects.filter(id=user_id).exists():
             return None
         return user_id

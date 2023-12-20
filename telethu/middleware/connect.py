@@ -54,6 +54,7 @@ class QueryAuthMiddleware:
         if user_id is None:
             return request_failed(2, "Token Invalid", 401)
         session.user_id = user_id
+        return 0
 
 
     async def __call__(self, scope, receive, send):
