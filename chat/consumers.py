@@ -271,7 +271,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_new.t_type = TargetType.GROUP
         message_new.sender = self.user_id
         message_new.receiver = group_id
-        await self.receive(message_new.model_dump_json())
+        message_json = message_new.model_dump_json()
+        await self.storage_exchange.publish(
+            aio_pika.Message(
+                body=message_json.encode(),  # turn message into bytes
+            ),
+            routing_key="",
+        )
+        for member in group_list:
+            await self.send_message_to_target(message_new, str(member))
 
     async def rcv_add_group_member(self, message: Message):
         if not isinstance(message.content, list):
@@ -303,7 +311,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message_new.t_type = TargetType.GROUP
             message_new.sender = self.user_id
             message_new.receiver = group_id
-            await self.receive(message_new.model_dump_json())
+            message_json = message_new.model_dump_json()
+            await self.storage_exchange.publish(
+                aio_pika.Message(
+                    body=message_json.encode(),  # turn message into bytes
+                ),
+                routing_key="",
+            )
+            for member in group_inform_list:
+                await self.send_message_to_target(message, str(member))
         else:  # if not real add, send message to owner and admin
             message.content = candidate_add_list
         for member in group_inform_list:
@@ -662,8 +678,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     new_message.receiver = message_received.sender
                     new_message.sender = message_received.receiver
                     new_message.m_type = MessageType.TEXT
-                    message_received.message_id = globalMessageIdMaker.get_id()
-                    message_json = message_received.model_dump_json()
+                    new_message.message_id = globalMessageIdMaker.get_id()
+                    message_json =  new_message.model_dump_json()
                     await self.storage_exchange.publish(
                         aio_pika.Message(
                             body=message_json.encode(),  # turn message into bytes
