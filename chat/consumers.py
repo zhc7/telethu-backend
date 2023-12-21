@@ -509,8 +509,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def rcv_callback_member_message(self, message: Message):
         message_id = message.content
         group_id = message.receiver
+        message.t_type = TargetType.GROUP
         try:
-            group_member = await db_recall_member_message(
+            await db_recall_member_message(
                 message_id, group_id, self.user_id
             )
         except KeyError as e:
@@ -518,8 +519,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
-        for member in group_member:
-            await self.send_message_to_target(message, str(member))
+        await self._forward_message(message)
 
     async def rcv_delete_message(self, message: Message):
         message_id = message.content
@@ -561,7 +561,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.t_type = TargetType.ERROR
             await self.send_message_to_front(message)
             return
-        await self.send_message_to_target(message, str(self.user_id))
+        await self._forward_message(message)
 
     async def rcv_edit_profile(self, message: Message):
         message.sender = self.user_id
