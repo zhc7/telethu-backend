@@ -43,6 +43,7 @@ from utils.db_fun import (
     db_delete_group,
     db_change_group_name,
     db_reply,
+    db_check_friend,
 )
 from utils.uid import globalMessageIdMaker
 
@@ -647,9 +648,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def _forward_message(self, message_received):
         if message_received.t_type == TargetType.FRIEND:  # send message to friend
             if message_received.receiver in self.friend_list:
-                await self.send_message_to_target(
-                    message_received, str(message_received.receiver)
-                )
+                try:
+                    await db_check_friend(self.user_id, message_received.receiver)
+                except KeyError as e:
+                    message_received.content = str(e)
+                    message_received.t_type = TargetType.ERROR
+                    await self.send_message_to_front(message_received)
+                    return
+                else:
+                    await self.send_message_to_target(
+                        message_received, str(message_received.receiver)
+                    )
             else:
                 message_received.content = "You are not friends or you are blocked or you are not in group"
                 message_received.t_type = TargetType.ERROR

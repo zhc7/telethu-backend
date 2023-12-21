@@ -682,3 +682,15 @@ def db_reply(user_id, reply_id, this_id,this_receiver):
     reply.who_reply.add(this_id)
     reply.save()
     return reply.sender
+
+@database_sync_to_async
+def db_check_friend(self_id,friend_id):
+    user_self = User.objects.filter(id=self_id).first()
+    if user_self is None:
+        raise KeyError("user not exist")
+    user_friend = User.objects.filter(id=friend_id).first()
+    if user_friend is None:
+        raise KeyError("friend not exist")
+    if user_friend.is_deleted:
+        raise KeyError("friend is deleted")
+    return True
