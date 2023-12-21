@@ -327,7 +327,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 routing_key="",
             )
             for member in group_inform_list:
-                await self.send_message_to_target(message, str(member))
+                await self.send_message_to_target(message_new, str(member))
         else:  # if not real add, send message to owner and admin
             message.content = candidate_add_list
         for member in group_inform_list:
