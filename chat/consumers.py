@@ -621,7 +621,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message = Message(**message_received.model_dump())
                 message.content = reply_id
                 message.m_type = MessageType.FUNC_REPLY
-                await self.send_message_to_target(message_received, str(target))
+                await self.send_message_to_target(message, str(target))
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
             md5 = message_received.content
