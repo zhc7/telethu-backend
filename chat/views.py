@@ -104,7 +104,6 @@ def filter_history(request):
         request.GET.get("id", -1)
     )  # id_value stands for the user that receives the message
     m_type = int(request.GET.get("m_type", -1))  # m_type
-    sender = int(request.GET.get("sender", -1))  # The id of sender
     content = str(
         request.GET.get("content", "")
     )  # The content of the message, user __contain
@@ -119,6 +118,7 @@ def filter_history(request):
     # chat history.
     user = User.objects.filter(id=user_id).first()
     in_group = GroupList.objects.filter(group_id=id_value).first()
+
     if in_group is None:
         # id stands for user
         print("id_value: ", id_value)
@@ -131,74 +131,24 @@ def filter_history(request):
         if not is_member:
             return request_failed(code=403, info="can't view chat history in a group that you are not in!")
     
+    group_ = Q(receiver = id_value)
+    if not in_group:
+        group_ = group_ | Q(receiver = user_id)
+    query = ~Q(deleted_users__in=[user_id]) & group_ & Q(time__gt=from_value) & Q(time__lt=to_value) & Q(m_type=m_type)
+    if (content != ""):
+        query = query & Q(content__icontains=content)
+    
     messages = []
-    if content != "":
-        print("content! ")
-        messages_unrecalled = MessageList.objects.filter(
-            ~Q(deleted_users__in=[user_id]),
-            Q(receiver=user_id) | Q(receiver=id_value),
-            content__icontains=content,
-            time__gt=from_value,
+            
+    messages_unrecalled = MessageList.objects.filter(
+            query
         ).order_by("-time")[:num_value]
-        for m in messages_unrecalled:
-            if m.status & MessageStatusType.RECALLED:
-                m.content = json.dumps("This message has been recalled!")
-            messages.append(m)
-    else:
-        messages_unrecalled = MessageList.objects.filter(
-            ~Q(deleted_users__in=[user_id]),
-            Q(receiver=user_id) | Q(receiver=id_value),
-            time__gt=from_value,
-        ).order_by("-time")[:num_value]
-        for m in messages_unrecalled:
-            if m.status & MessageStatusType.RECALLED:
-                m.content = json.dumps("This message has been recalled!")
+    
+    print("messages unrecalled: ", messages_unrecalled)
+    for m in messages_unrecalled:
+        if not (m.status & MessageStatusType.RECALLED):
             messages.append(m)
 
-    # You may get some message that you shouldn't receive
-    f_messages = []
-
-    # Preprocessing
-    for message in messages:
-        if message.m_type < 6:
-            if message.t_type == 0:
-                if message.sender == user_id or message.receiver == user_id:
-                    f_messages.append(message)
-            elif message.t_type == 1:
-                group = GroupList.objects.filter(group_id=message.receiver).first()
-                if group is not None:
-                    is_member = user in group.group_members.all()
-                    if is_member:
-                        f_messages.append(message)
-
-    messages = f_messages
-
-    # If to_value != -1, then filter the messages to get all that's sent earlier than to_value
-    if to_value != -1:
-        print("to!")
-        f_messages = [message for message in messages if message.time < to_value]
-        messages = f_messages
-
-    # if m_type != -1, then filter all the messages with m_type
-    if m_type != -1:
-        print("m_type!")
-        f_messages = [message for message in messages if message.m_type == m_type]
-        messages = f_messages
-
-    # if sender != -1, then filter all the message sent by sender
-    if sender != -1:
-        print("sender!")
-        f_messages = [message for message in messages if message.sender == sender]
-        messages = f_messages
-    print("messages we get now: ", messages)
-    
-    # if receiver != -1, then filter all the message received by id_value
-    if id_value != -1:
-        print("id_value!", id_value)
-        if in_group:
-            f_messages = [message for message in messages if (message.receiver == id_value)]
-        messages = f_messages
-    
 
     messages_list = load_message_from_list(messages)
     messages_list.reverse()
