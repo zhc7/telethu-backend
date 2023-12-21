@@ -289,6 +289,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return None
         if len(real_add_list) > 0:  # if real add, send message to all group members
             message.content = real_add_list
+            message_new = message
+            message_new.m_type = MessageType.TEXT
+            message_new.content = "Welcome new member to the group!"
+            message_new.t_type = TargetType.GROUP
+            message_new.sender = self.user_id
+            message_new.receiver = group_id
+            await self.receive(message_new.model_dump_json())
         else:  # if not real add, send message to owner and admin
             message.content = candidate_add_list
         for member in group_inform_list:
