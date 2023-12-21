@@ -113,7 +113,8 @@ def filter_history(request):
     )  # Number of messages we ought to get, default to be -1 to show no limits
     user_id = int(request.user_id)
     # First, find all the message within from_value and to value
-
+    if id_value == -1:
+        id_value = user_id
     # Note that id_value stands for the receiver for search, therefore the user has a risk of searching other's
     # chat history.
     user = User.objects.filter(id=user_id).first()
@@ -135,6 +136,7 @@ def filter_history(request):
         print("content! ")
         messages_unrecalled = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
+            Q(receiver=user_id) | Q(receiver=id_value),
             content__icontains=content,
             time__gt=from_value,
         ).order_by("-time")[:num_value]
@@ -145,6 +147,7 @@ def filter_history(request):
     else:
         messages_unrecalled = MessageList.objects.filter(
             ~Q(deleted_users__in=[user_id]),
+            Q(receiver=user_id) | Q(receiver=id_value),
             time__gt=from_value,
         ).order_by("-time")[:num_value]
         for m in messages_unrecalled:
@@ -172,23 +175,30 @@ def filter_history(request):
 
     # If to_value != -1, then filter the messages to get all that's sent earlier than to_value
     if to_value != -1:
+        print("to!")
         f_messages = [message for message in messages if message.time < to_value]
         messages = f_messages
 
     # if m_type != -1, then filter all the messages with m_type
     if m_type != -1:
+        print("m_type!")
         f_messages = [message for message in messages if message.m_type == m_type]
         messages = f_messages
 
     # if sender != -1, then filter all the message sent by sender
     if sender != -1:
+        print("sender!")
         f_messages = [message for message in messages if message.sender == sender]
         messages = f_messages
-
+    print("messages we get now: ", messages)
+    
     # if receiver != -1, then filter all the message received by id_value
     if id_value != -1:
-        f_messages = [message for message in messages if message.receiver == id_value]
+        print("id_value!", id_value)
+        if in_group:
+            f_messages = [message for message in messages if (message.receiver == id_value)]
         messages = f_messages
+    
 
     messages_list = load_message_from_list(messages)
     messages_list.reverse()
