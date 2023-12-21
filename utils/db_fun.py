@@ -684,7 +684,7 @@ def db_reply(user_id, reply_id, this_id,this_receiver):
     return reply.sender
 
 @database_sync_to_async
-def db_check_friend(self_id,friend_id):
+def db_check_friend_if_deleted(self_id, friend_id):
     user_self = User.objects.filter(id=self_id).first()
     if user_self is None:
         raise KeyError("user not exist")
@@ -692,5 +692,5 @@ def db_check_friend(self_id,friend_id):
     if user_friend is None:
         raise KeyError("friend not exist")
     if user_friend.is_deleted:
-        raise KeyError("friend is deleted")
-    return True
+        return True
+    return False

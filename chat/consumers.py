@@ -43,7 +43,7 @@ from utils.db_fun import (
     db_delete_group,
     db_change_group_name,
     db_reply,
-    db_check_friend,
+    db_check_friend_if_deleted,
 )
 from utils.uid import globalMessageIdMaker
 
@@ -649,12 +649,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if message_received.t_type == TargetType.FRIEND:  # send message to friend
             if message_received.receiver in self.friend_list:
                 try:
-                    await db_check_friend(self.user_id, message_received.receiver)
+                    if_deleted = await db_check_friend_if_deleted(self.user_id, message_received.receiver)
                 except KeyError as e:
                     message_received.content = str(e)
                     message_received.t_type = TargetType.ERROR
                     await self.send_message_to_front(message_received)
                     return
+                if if_deleted:
+                    new_message = Message(**message_received.model_dump())
+                    new_message.content = "You friend is deleted"
+                    new_message.t_type = TargetType.FRIEND
+                    new_message.receiver = message_received.sender
+                    new_message.sender = message_received.receiver
+                    new_message.m_type = MessageType.TEXT
+                    message_received.message_id = globalMessageIdMaker.get_id()
+                    message_json = message_received.model_dump_json()
+                    await self.storage_exchange.publish(
+                        aio_pika.Message(
+                            body=message_json.encode(),  # turn message into bytes
+                        ),
+                        routing_key="",
+                    )
+                    await self.send_message_to_target(new_message, str(new_message.receiver))
                 else:
                     await self.send_message_to_target(
                         message_received, str(message_received.receiver)
