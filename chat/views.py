@@ -131,12 +131,19 @@ def filter_history(request):
         if not is_member:
             return request_failed(code=403, info="can't view chat history in a group that you are not in!")
     
+    to_time = Q()
+    if to_value != -1:
+        to_time = Q(time__lt=to_value)
+    
     group_ = Q(receiver = id_value)
     if not in_group:
-        group_ = group_ | Q(receiver = user_id)
-    query = ~Q(deleted_users__in=[user_id]) & group_ & Q(time__gt=from_value) & Q(time__lt=to_value) & Q(m_type=m_type)
+        group_ = (Q(receiver = id_value) & Q(sender = user_id)) | (Q(receiver = user_id) & Q(sender = id_value))
+    query = ~Q(deleted_users__in=[user_id]) & group_ & Q(time__gt=from_value) & Q(m_type=m_type)
     if (content != ""):
         query = query & Q(content__icontains=content)
+    if to_value != -1:
+        print("no to!")
+        query = query & to_time
     
     messages = []
             
