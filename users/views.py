@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import re
-from telethu import settings 
+from telethu import settings
 import magic
 from django.core.signing import loads
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -64,7 +64,7 @@ def login(req: HttpRequest):
         ).model_dump(),
     }
     return request_success(response_data)
-  
+
 @csrf_exempt  # 关闭csrf验证
 def login_with_email(req: HttpRequest):
     if req.method != "POST":
@@ -87,7 +87,7 @@ def login_with_email(req: HttpRequest):
     except KeyError as e:
         error_message, status_code = str(e.args[0]), int(e.args[1])
         return request_failed(2, error_message, status_code=status_code)
-    
+
     verifier = VerifyMailList.objects.filter(email=user_email).first()
 
     if (verifier is None) or int(verifier.verification_code == 0):
@@ -105,7 +105,7 @@ def login_with_email(req: HttpRequest):
     else:
         if verifier.verification_code != int(verification_code):
             return request_failed(2, "Wrong verification code! ", status_code=404)
-        
+
     # Change the password to the new password and login
     user = User.objects.get(userEmail=user_email)
     if user is None:
@@ -592,6 +592,7 @@ def edit_profile(req: HttpRequest):
             return request_failed(2, "Wrong password", 403)
         user.password = hash_string_with_sha256(new_password, num_iterations=5)
         user_id = user.id
+        user.save()
         token = generate_jwt_token(user_id)
     user.save()
     return JsonResponse(
