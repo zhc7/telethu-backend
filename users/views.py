@@ -493,7 +493,7 @@ def user_search(req: HttpRequest):
 
 @csrf_exempt
 def delete_user(req: HttpRequest):
-    if req.method != "DELETE":
+    if req.method != "POST":
         return BAD_METHOD
     user = User.objects.get(id=req.user_id)
     # exception
@@ -501,6 +501,7 @@ def delete_user(req: HttpRequest):
         return request_failed(2, "Deleting a user that doesn't exist!", status_code=404)
     else:
         body = json.loads(req.body)
+        print("body: ", body)
         password = body.get("password")
         if password is None:
             return request_failed(2, "Password missing! ", status_code=403)
