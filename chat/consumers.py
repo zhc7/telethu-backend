@@ -265,12 +265,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.content = group_id
         for member in group_list:
             await self.send_message_to_target(message, str(member))
-        message_new = Message(**message.model_dump())
-        message_new.m_type = MessageType.TEXT
-        message_new.content = "Welcome to the group!"
-        message_new.t_type = TargetType.GROUP
-        message_new.sender = self.user_id
-        message_new.receiver = group_id
+        message_new = Message(
+            message_id=globalMessageIdMaker.get_id(),
+            m_type=MessageType.TEXT,
+            content="Welcome to the group!",
+            t_type=TargetType.GROUP,
+            sender=self.user_id,
+            receiver=group_id,
+            time=int(time.time() * 1000),
+            who_read=[],
+        )
         message_json = message_new.model_dump_json()
         await self.storage_exchange.publish(
             aio_pika.Message(
@@ -305,12 +309,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return None
         if len(real_add_list) > 0:  # if real add, send message to all group members
             message.content = real_add_list
-            message_new = Message(**message.model_dump())
-            message_new.m_type = MessageType.TEXT
-            message_new.content = "Welcome new member to the group!"
-            message_new.t_type = TargetType.GROUP
-            message_new.sender = self.user_id
-            message_new.receiver = group_id
+            message_new = Message(
+                message_id=globalMessageIdMaker.get_id(),
+                m_type=MessageType.TEXT,
+                content="Welcome new member to the group!",
+                t_type=TargetType.GROUP,
+                sender=self.user_id,
+                receiver=group_id,
+                time=int(time.time() * 1000),
+                who_read=[],
+            )
             message_json = message_new.model_dump_json()
             await self.storage_exchange.publish(
                 aio_pika.Message(
@@ -652,6 +660,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message = Message(**message_received.model_dump())
                 message.content = reply_id
                 message.m_type = MessageType.FUNC_REPLY
+                message.message_id = globalMessageIdMaker.get_id()
                 await self._forward_message(message)
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
@@ -672,14 +681,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     await self.send_message_to_front(message_received)
                     return
                 if if_deleted:
-                    new_message = Message(**message_received.model_dump())
-                    new_message.content = "You friend is deleted"
-                    new_message.t_type = TargetType.FRIEND
-                    new_message.receiver = message_received.sender
-                    new_message.sender = message_received.receiver
-                    new_message.m_type = MessageType.TEXT
-                    new_message.message_id = globalMessageIdMaker.get_id()
-                    message_json =  new_message.model_dump_json()
+                    new_message = Message(
+                        message_id=globalMessageIdMaker.get_id(),
+                        content="Your friend is deleted",
+                        t_type=TargetType.FRIEND,
+                        m_type=MessageType.TEXT,
+                        receiver=message_received.sender,
+                        sender=message_received.receiver,
+                        time=int(time.time() * 1000),
+                        who_read=[],
+                    )
+                    message_json = new_message.model_dump_json()
                     await self.storage_exchange.publish(
                         aio_pika.Message(
                             body=message_json.encode(),  # turn message into bytes
