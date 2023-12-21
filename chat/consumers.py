@@ -264,6 +264,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message.content = group_id
         for member in group_list:
             await self.send_message_to_target(message, str(member))
+        message_new = Message(**message.model_dump())
+        message_new.m_type = MessageType.TEXT
+        message_new.content = "Welcome to the group!"
+        message_new.t_type = TargetType.GROUP
+        message_new.sender = self.user_id
+        message_new.receiver = group_id
+        await self.receive(message_new.model_dump_json())
 
     async def rcv_add_group_member(self, message: Message):
         if not isinstance(message.content, list):
@@ -289,7 +296,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return None
         if len(real_add_list) > 0:  # if real add, send message to all group members
             message.content = real_add_list
-            message_new = message
+            message_new = Message(**message.model_dump())
             message_new.m_type = MessageType.TEXT
             message_new.content = "Welcome new member to the group!"
             message_new.t_type = TargetType.GROUP
