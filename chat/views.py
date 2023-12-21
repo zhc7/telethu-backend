@@ -4,7 +4,7 @@ from django.db.models import Q, F
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from users.models import MessageList, GroupList, User
+from users.models import MessageList, GroupList, User, Friendship
 from utils.data import Message, TargetType
 from utils.data import MessageStatusType
 from utils.utils_request import request_failed, request_success, BAD_METHOD
@@ -120,7 +120,10 @@ def filter_history(request):
     in_group = GroupList.objects.filter(group_id=id_value).first()
     if in_group is None:
         # id stands for user
-        if id_value != user_id:
+        print("id_value: ", id_value)
+        print("user_id", user_id)
+        if not (Friendship.objects.filter(user1=id_value, user2=user_id).exists() or Friendship.objects.filter(
+            user2=user_id, user1=id_value).exists()):
             return request_failed(code=403, info="can't view other's chat history!")
     else:
         is_member = user in in_group.group_members.all()
