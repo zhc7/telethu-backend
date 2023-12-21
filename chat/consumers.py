@@ -621,13 +621,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message = Message(**message_received.model_dump())
                 message.content = reply_id
                 message.m_type = MessageType.FUNC_REPLY
-                await self.send_message_to_target(message, str(target))
+                await self._forward_message(message)
         if message_received.m_type != MessageType.TEXT:  # multimedia
             m_type = message_received.m_type
             md5 = message_received.content
             t_type = message_received.t_type
             user_or_group = message_received.receiver
             await db_create_multimedia(self.user_id, m_type, md5, t_type, user_or_group)
+        await self._forward_message(message_received)
+
+    async def _forward_message(self, message_received):
         if message_received.t_type == TargetType.FRIEND:  # send message to friend
             if message_received.receiver in self.friend_list:
                 await self.send_message_to_target(
