@@ -270,7 +270,13 @@ def get_user_info(req: HttpRequest, user_id: int):
     else:
         user = User.objects.get(id=user_id)
         if user.is_deleted:
-            return request_failed(2, "User has deleted", status_code=404)
+            response_data = UserData(
+                id=user.id,
+                name="user is deleted",
+                avatar="e42199ac87011d1b40b81163bb338476",
+                email="user is deleted",
+            ).model_dump()
+            return request_success(response_data)
         response_data = UserData(
             id=user.id,
             name=user.username,
