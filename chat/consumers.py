@@ -643,14 +643,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(member))
 
     async def rcv_handle_common_message(self, message_received: Message):
-        if (
-                "reference" in message_received.info
+        if (    message_received.info is not None
+                and "reference" in message_received.info
                 and message_received.info["reference"] != -1
         ):
             reply_id = message_received.info["reference"]
             this_id = message_received.message_id
             try:
-                target = await db_reply(self.user_id, reply_id, this_id,this_receiver=message_received.receiver)
+                await db_reply(self.user_id, reply_id, this_id,this_receiver=message_received.receiver)
             except KeyError as e:
                 message_received.content = str(e)
                 message_received.t_type = TargetType.ERROR
@@ -671,6 +671,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self._forward_message(message_received)
 
     async def _forward_message(self, message_received):
+        print("----------------2---------------------")
+        print("-----------------2--------------------")
         if message_received.t_type == TargetType.FRIEND:  # send message to friend
             if message_received.receiver in self.friend_list:
                 try:
