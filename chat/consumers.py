@@ -382,6 +382,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(friend_id))
             await db_friendship_change(self.user_id, friend_id, 0)
         await self.send_message_to_target(message, str(self.user_id))
+        await self.send_message_to_target(message, str(friend_id))
 
     async def rcv_accept_friend(self, message: Message):
         friend_id = message.receiver

@@ -153,17 +153,17 @@ def db_add_member(group_id, add_members, self_user_id):
     # 加好友列表
     real_add_list = []
     candidate_add_list = []
-    for member in add_members:
+    for member_id in add_members:
         # 判断加的人存在吗
-        if not User.objects.filter(id=member).exists():
+        if not User.objects.filter(id=member_id).exists():
             continue
             # 判断加的人是不是自己
-        if member == self_user_id:
+        if member_id == self_user_id:
             print("Adding self")
             continue
             # 判断加的人是不是已经在群里了
         if (
-            User.objects.filter(id=member).first()
+            User.objects.filter(id=member_id).first()
             in group.group_members.all()
         ):
             print("Already in group")
@@ -175,49 +175,49 @@ def db_add_member(group_id, add_members, self_user_id):
         ):  # user is group owner or admin
             if (
                     not Friendship.objects.filter(
-                        user1=self_user_id, user2=member
+                        user1=self_user_id, user2=member_id
                     ).exists()
                     and
                     not Friendship.objects.filter(
-                    user2=self_user_id, user1=member
+                    user2=self_user_id, user1=member_id
                     ).exists()
                     and
-                    member not in group.group_candidate_members
+                    not group.group_candidate_members.filter(id=member_id).exists()
             ):
                 print("not friends and not in candidate_list")
                 continue
-            real_add_list.append(member)
-            group.group_members.add(member)
+            real_add_list.append(member_id)
+            group.group_members.add(member_id)
             # delete they in candidate list
-            if group.group_candidate_members.filter(id=member).exists():
-                group.group_candidate_members.remove(member)
+            if group.group_candidate_members.filter(id=member_id).exists():
+                group.group_candidate_members.remove(member_id)
         else:  # user is not group owner or admin
             print("not admin")
             if (
                     not Friendship.objects.filter(
-                        user1=self_user_id, user2=member
+                        user1=self_user_id, user2=member_id
                     ).exists()
                     and not Friendship.objects.filter(
-                user2=self_user_id, user1=member
+                user2=self_user_id, user1=member_id
             ).exists()
             ):
                 print("not friends.")
                 continue
-            if member not in group.group_candidate_members.all():
-                group.group_candidate_members.add(member)
-            candidate_add_list.append(member)
+            if member_id not in group.group_candidate_members.all():
+                group.group_candidate_members.add(member_id)
+            candidate_add_list.append(member_id)
     group.save()
     if len(real_add_list) == 0 and len(candidate_add_list) == 0:
         print(f"real_list: {real_add_list}, candidate_add_list: {candidate_add_list}")
         raise KeyError("no one can be added")
     id_list = []
     if len(real_add_list) != 0:  # if real add, inform all members
-        for member in group.group_members.all():
-            id_list.append(member.id)
+        for member_id in group.group_members.all():
+            id_list.append(member_id.id)
     else:  # if candidate add, inform owner and admin
         id_list.append(group.group_owner.id)
-        for member in group.group_admin.all():
-            id_list.append(member.id)
+        for member_id in group.group_admin.all():
+            id_list.append(member_id.id)
     return real_add_list, candidate_add_list, id_list
 
 
