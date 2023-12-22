@@ -701,3 +701,21 @@ def db_check_friend_if_deleted(self_id, friend_id):
     if user_friend.is_deleted:
         return True
     return False
+
+@database_sync_to_async
+def db_check_friend_if_blocked(self_id,friend_id):
+    user_self = User.objects.filter(id=self_id).first()
+    if user_self is None:
+        return False
+    user_friend = User.objects.filter(id=friend_id).first()
+    if user_friend is None:
+        return False
+    if user_self.user1_friendships.filter(user2=user_friend).exists():
+        friendship = user_self.user1_friendships.get(user2=user_friend)
+    elif user_self.user2_friendships.filter(user1=user_friend).exists():
+        friendship = user_self.user2_friendships.get(user1=user_friend)
+    else:
+        return False
+    if friendship.state == 2:
+        return True
+    return False

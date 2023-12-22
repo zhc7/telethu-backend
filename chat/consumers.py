@@ -44,6 +44,7 @@ from utils.db_fun import (
     db_change_group_name,
     db_reply,
     db_check_friend_if_deleted,
+    db_check_friend_if_blocked,
 )
 from utils.uid import globalMessageIdMaker
 
@@ -197,6 +198,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 reference=tmp_id,
             ).model_dump_json()
         )
+        # step2.5 check receiver availability
+        if message_received.m_type < MessageType.FUNCTION:
+            if message_received.t_type == TargetType.FRIEND:
+                if await db_check_friend_if_blocked(
+                        self.user_id, message_received.receiver,
+                ): # blocked and is friend
+                    message_new = Message(
+                        message_id=globalMessageIdMaker.get_id(),
+                        m_type=MessageType.TEXT,
+                        content="This friend has been blocked!",
+                        t_type=TargetType.FRIEND,
+                        sender=message_received.receiver,
+                        receiver=self.user_id,
+                        time=int(time.time() * 1000),
+                    )
+                    await self.send_message_to_target(message_new, str(self.user_id))
+                    return
+            if message_received.receiver not in self.group_list + self.friend_list:
+                return
+
 
         # step 3. publish message to persistent storage queue
         if message_received.m_type < MessageType.FUNCTION:
@@ -371,6 +392,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(friend_id))
             await db_friendship_change(self.user_id, friend_id, 1)
         await self.send_message_to_target(message, str(self.user_id))
+        await self.send_message_to_target(message, str(friend_id))
 
     async def rcv_reject_friend(self, message: Message):
         friend_id = message.receiver
