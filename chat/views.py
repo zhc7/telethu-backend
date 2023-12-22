@@ -124,17 +124,17 @@ def filter_history(request):
         print("id_value: ", id_value)
         print("user_id", user_id)
         if not (Friendship.objects.filter(user1=id_value, user2=user_id).exists() or Friendship.objects.filter(
-            user2=user_id, user1=id_value).exists()):
+            user1=user_id, user2=id_value).exists()):
             return request_failed(code=403, info="can't view other's chat history!")
     else:
         is_member = user in in_group.group_members.all()
         if not is_member:
             return request_failed(code=403, info="can't view chat history in a group that you are not in!")
-    
+
     to_time = Q()
     if to_value != -1:
         to_time = Q(time__lt=to_value)
-    
+
     group_ = Q(receiver = id_value)
     if not in_group:
         group_ = (Q(receiver = id_value) & Q(sender = user_id)) | (Q(receiver = user_id) & Q(sender = id_value))
@@ -144,13 +144,13 @@ def filter_history(request):
     if to_value != -1:
         print("no to!")
         query = query & to_time
-    
+
     messages = []
-            
+
     messages_unrecalled = MessageList.objects.filter(
             query
         ).order_by("-time")[:num_value]
-    
+
     print("messages unrecalled: ", messages_unrecalled)
     for m in messages_unrecalled:
         if not (m.status & MessageStatusType.RECALLED):
