@@ -1,6 +1,6 @@
 import json
 
-from django.db.models import Q, F
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -139,7 +139,7 @@ def filter_history(request):
     if not in_group:
         group_ = (Q(receiver = id_value) & Q(sender = user_id)) | (Q(receiver = user_id) & Q(sender = id_value))
     query = ~Q(deleted_users__in=[user_id]) & group_ & Q(time__gt=from_value) & Q(m_type=m_type)
-    if (content != ""):
+    if content != "":
         query = query & Q(content__icontains=content)
     if to_value != -1:
         print("no to!")
@@ -165,6 +165,12 @@ def filter_history(request):
 
 
 def get_message(request, message_id):
+    user_id=request.user_id
+    if user_id is None:
+        return request_failed(code=403, info="User id is not provided! ")
+    user = User.objects.filter(id=user_id).first()
+    if user is None:
+        return request_failed(code=403, info="User not found! ")
     if request.method != "GET":
         return BAD_METHOD
     if message_id is None:
@@ -172,6 +178,10 @@ def get_message(request, message_id):
     message = MessageList.objects.filter(message_id=message_id).first()
     if message is None:
         return request_failed(code=403, info="Message not found! ")
+    if message.sender != user_id:
+        if message.receiver != user_id:
+            group = GroupList.objects.filter(group_id=message.receiver).first()
+            if group is None or user not in group.group_members.all():
+                return request_failed(code=403, info="You are not the sender or receiver of this message! ")
     message_response = load_message(message)
-    print("another checkpoint: ", message_response.content)
     return request_success(message_response.model_dump())
