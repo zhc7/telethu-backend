@@ -249,7 +249,7 @@ def register(req: HttpRequest):
 def get_user_info(req: HttpRequest, user_id: int):
     if req.method != "GET":
         return BAD_METHOD
-    if_user_exit = User.objects.filter(id=user_id, is_deleted=False).exists()
+    if_user_exit = User.objects.filter(id=user_id).exists()
     if if_user_exit is False:
         if_group_exit = GroupList.objects.filter(group_id=user_id).exists()
         if if_group_exit is False:
@@ -269,6 +269,8 @@ def get_user_info(req: HttpRequest, user_id: int):
             ).model_dump()
     else:
         user = User.objects.get(id=user_id)
+        if user.is_deleted:
+            return request_failed(2, "User has deleted", status_code=404)
         response_data = UserData(
             id=user.id,
             name=user.username,
