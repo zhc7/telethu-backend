@@ -111,6 +111,13 @@ def db_query_fri_and_gro_id(user_id):
                 friend_id = friend.user1.id
             if friend_id not in fri_gro_id:
                 fri_gro_id.append(friend_id)
+        if friend.state == 2:
+            if str(friend.user2.id) == str(user_id):
+                friend_id = friend.user1.id
+            else:
+                friend_id = friend.user2.id
+            if friend_id not in fri_gro_id:
+                fri_gro_id.append(friend_id)
     groups = GroupList.objects.filter(group_members=user_id)
     for group in groups:
         if group.group_id not in fri_gro_id:

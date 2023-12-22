@@ -396,6 +396,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(friend_id))
             await db_friendship_change(self.user_id, friend_id, 2)
         await self.send_message_to_target(message, str(self.user_id))
+        await self.send_message_to_target(message, str(friend_id))
 
     async def rcv_unblock_friend(self, message: Message):
         friend_id = message.receiver
@@ -406,6 +407,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_message_to_target(message, str(friend_id))
             await db_friendship_change(self.user_id, friend_id, 1)
         await self.send_message_to_target(message, str(self.user_id))
+        await self.send_message_to_target(message, str(friend_id))
 
     async def rcv_delete_friend(self, message: Message):
         friend_id = message.receiver
@@ -671,8 +673,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self._forward_message(message_received)
 
     async def _forward_message(self, message_received):
-        print("----------------2---------------------")
-        print("-----------------2--------------------")
         if message_received.t_type == TargetType.FRIEND:  # send message to friend
             if message_received.receiver in self.friend_list:
                 try:
